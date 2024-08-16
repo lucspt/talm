@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+
+set -e
+
+cd "$(dirname "$0")/../../"
+
+echo "==> Running tests"
+rye run test
+
+echo "==> Running linter"
+rye run ruff check --fix
+
+echo "==> Running type checker"
+rye run mypy .
+
+echo "==> Running formatter"
+rye run ruff format
+
+files=$(git diff --name-only -z --diff-filter=ACMR)
+
+if ! [ -z "$files" ]; then
+  git add -- "$files"
+fi

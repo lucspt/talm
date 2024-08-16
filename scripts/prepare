@@ -1,0 +1,15 @@
+# !/usr/bin/env sh
+
+
+d="$(dirname "$dir")/.github/hooks"
+
+git config --local core.hooksPath "$d"
+
+pre_commit_file="$d/pre-commit"
+
+echo "$pre_commit_file"
+
+if ! [[ -x "$pre_commit_file" ]] && command -v chmod &> /dev/null; then
+  chmod +x "$pre_commit_file"
+fi
+  
