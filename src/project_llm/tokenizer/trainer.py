@@ -49,6 +49,16 @@ class Trainer:
             for c in chunks:
                 Tokenizer.count_pairs(c, counts)
 
+            if not counts:  # we've already done all possible merges
+                max_size = len(decoder)
+                logger.warning(
+                    "NOTE: The given text for tokenizer training"
+                    f"is too short for the specified vocab_size, {vocab_size}. "
+                    f"The max vocab size for the text is {max_size}, "
+                    f"and thus the tokenizer's vocab size will be {max_size}"
+                )
+                break
+
             pair = max(counts, key=counts.get)  # type: ignore
             chunks = [Tokenizer.merge(c, pair, nth_merge) for c in chunks]
             merges[pair] = nth_merge

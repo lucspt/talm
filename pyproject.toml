@@ -5,6 +5,7 @@ description = "Add your description here"
 authors = []
 dependencies = [
     "regex>=2024.7.24",
+    "torch>=2.4.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
@@ -19,11 +20,12 @@ dev-dependencies = [
     "mypy>=1.10.1",
     "pytest-cov>=5.0.0",
     "ruff>=0.5.0",
-    "mkdocs>=1.6.0",
-    "mkdocstrings[python]>=0.25.1",
-    "mkdocs-material>=9.5.29",
-    "datasets>=2.21.0",
+    "datasets<=2.21.0",
 ]
+
+[[tool.rye.sources]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"
 
 [tool.rye.scripts]
 test = { cmd = "pytest --cov=src/ tests/" }
@@ -65,6 +67,7 @@ known-first-party = ["project_llm", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = "slow: mark tests as slow"
 
 [tool.coverage.run]
 omit = [

@@ -74,15 +74,16 @@ class Tokenizer:
 
     @staticmethod
     def count_pairs(
-        tokens: list[int], initial_counts: Optional[dict[Pair, int]] = None
+        tokens: list[int], counts: Optional[dict[Pair, int]] = None
     ) -> dict[Pair, int]:
         """Count the frequency of integer id pairs gen a list of integers.
 
         Args:
-            tokens (list[int]): The integer ids
-            initial_counts: (dict[Pair, int], Optional): initial mapping of frequencies to start from.
+            tokens (list[int]): The integer ids.
+            counts: (dict[Pair, int], Optional): initial mapping of pairs to their counts.
+                Further counting performed by this function will mutate the mapping.
         """
-        counts = {} if initial_counts is None else initial_counts
+        counts = {} if counts is None else counts
         for pair in zip(tokens, tokens[1:]):
             counts[pair] = counts.get(pair, 0) + 1
         return counts

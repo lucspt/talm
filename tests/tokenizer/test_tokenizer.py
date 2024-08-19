@@ -1,6 +1,6 @@
-import tempfile
 from typing import Generator
 from pathlib import Path
+from tempfile import mkdtemp
 
 import pytest
 
@@ -20,8 +20,8 @@ TRAIN_DATA = [
 
 @pytest.fixture(scope="module")
 def tokenizer_path() -> Generator[Path, None, None]:
-    dir = tempfile.mkdtemp()
-    p = Path(dir) / "tokenizer.bpe"
+    p = Path(mkdtemp()) / "tokenizer.bpe"
+    p.parent.mkdir(exist_ok=True)
     yield p
     p.unlink()
     p.parent.rmdir()
@@ -31,11 +31,11 @@ def tokenizer_path() -> Generator[Path, None, None]:
 def train_tokenizer(tokenizer_path: Path) -> None:
     """Create / train tokenizer and return the file pointing to it"""
     trainer = Trainer()
-    trainer.train(text="\n".join(TRAIN_DATA), vocab_size=123, fp=str(tokenizer_path))
+    trainer.train(text="\n".join(TRAIN_DATA), vocab_size=300, fp=str(tokenizer_path))
 
 
 @pytest.fixture(scope="module")
-def tokenizer(tokenizer_path: Path) -> Tokenizer:
+def tokenizer(tokenizer_path: Path, train_tokenizer: None) -> Tokenizer:
     return Tokenizer.from_file(str(tokenizer_path))
 
 
@@ -65,7 +65,6 @@ class TestTokenizer:
 
     def test_encode_allow_specials(self, tokenizer: Tokenizer) -> None:
         tokens = tokenizer.encode("".join(special_tokens), allow_special=True)
-        print(tokens)
         assert tokens == [tokenizer.special_tokens_encoder[x] for x in special_tokens]
 
     @pytest.mark.parametrize("text", TRAIN_DATA)
