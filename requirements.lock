@@ -10,3 +10,5 @@
 #   universal: false
 
 -e file:.
+regex==2024.7.24
+    # via project-llm

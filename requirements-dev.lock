@@ -99,6 +99,7 @@ pyyaml-env-tag==0.1
     # via mkdocs
 regex==2024.7.24
     # via mkdocs-material
+    # via project-llm
 requests==2.32.3
     # via mkdocs-material
 ruff==0.6.0
