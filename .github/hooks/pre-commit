@@ -18,7 +18,6 @@ rye run ruff format
 
 files=$(git diff --name-only --diff-filter=ACMR)
 
-echo $files
 if ! [ -z "$files" ]; then
   git add -- $files
 fi
