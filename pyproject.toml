@@ -11,6 +11,7 @@ requires-python = ">= 3.12"
 
 [project.scripts]
 train_tokenizer = "project_llm.tokenizer.train:main"
+download_data = "project_llm.data.download:main"
 
 [tool.rye]
 managed = true
@@ -21,6 +22,7 @@ dev-dependencies = [
     "mkdocs>=1.6.0",
     "mkdocstrings[python]>=0.25.1",
     "mkdocs-material>=9.5.29",
+    "datasets>=2.21.0",
 ]
 
 [tool.rye.scripts]
@@ -66,7 +68,9 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 omit = [
-   "train.py"
+   "train.py",
+   "download.py",
+   "logger.py"
 ]
 
 [tool.coverage.report]
