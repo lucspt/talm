@@ -40,7 +40,7 @@ class Tokenizer:
     ) -> None:
         self.merges = merges
         self.decoder = decoder
-        self.n_vocab = len(decoder)
+        self.n_vocab = len(decoder) + len(merges)
         self.special_tokens_pattern: Optional[str]
         if special_tokens is not None:
             special_tokens = set(special_tokens).union({"<|endoftext|>"})
@@ -49,16 +49,18 @@ class Tokenizer:
         self.__configure_special_tokens(special_tokens)
 
     def __configure_special_tokens(self, special_tokens: set[str]) -> None:
-        dec, enc, n = {}, {}, len(special_tokens)
-        for n, spt in zip(range(self.n_vocab, self.n_vocab + n), special_tokens):
-            dec[n] = spt.encode("utf-8")
-            enc[spt] = n
+        dec, enc, n_special = {}, {}, len(special_tokens)
+        for nth, spt in zip(
+            range(self.n_vocab, self.n_vocab + n_special), special_tokens
+        ):
+            dec[nth] = spt.encode("utf-8")
+            enc[spt] = nth
         self.special_tokens_decoder = dec
         self.special_tokens_encoder = enc
         self.special_tokens_pattern = (
             "(" + "|".join(regex.escape(s) for s in special_tokens) + ")"
         )
-        self.n_vocab += n
+        self.n_vocab += n_special
 
     @staticmethod
     def from_file(

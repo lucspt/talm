@@ -10,6 +10,7 @@ from datasets import DatasetDict, load_dataset  # type: ignore
 from numpy.typing import NDArray, ArrayLike
 
 from ..logger import create_logger
+from .helpers import is_folder_empty
 from ..config.data import DataConfig
 from ..config.root import RootConfig
 from ..tokenizer.tokenizer import Tokenizer
@@ -21,7 +22,7 @@ logger = create_logger(__name__)
 
 def abort_if_data_dir_not_empty() -> None:
     save_dir = config.dataset_dir
-    if save_dir.exists() and len(list(save_dir.glob("*"))) > 0:
+    if save_dir.exists() and not is_folder_empty(save_dir):
         logger.error(
             f"Dataset dir '{save_dir}' already exists, and is not empty. "
             "Aborting to not overwrite any files"
