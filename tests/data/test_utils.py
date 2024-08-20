@@ -7,7 +7,7 @@ import torch
 import pytest
 
 from project_llm.data.utils import TokensShard, ShardedDataLoader
-from project_llm.data.config import DataConfig
+from project_llm.config.data import DataConfig
 
 config = DataConfig()
 
@@ -16,7 +16,7 @@ config = DataConfig()
 def token_shard_path() -> Generator[Path, None, None]:
     p = Path(mkdtemp()) / "train_00001.npy"  # mock shard filename
     p.parent.mkdir(exist_ok=True)
-    np.save(p, np.random.randn(config.shard_size).astype(np.uint16))
+    np.save(p, np.random.randn(config.dataset_shard_size).astype(np.uint16))
     yield p
     p.unlink()
     p.parent.rmdir()
@@ -45,7 +45,7 @@ class TestShardedDataLoader:
         )
 
     def test_len(self, dataloader: ShardedDataLoader) -> None:
-        assert len(dataloader) == config.shard_size // (
+        assert len(dataloader) == config.dataset_shard_size // (
             self.BATCH_SIZE * self.CONTEXT_LEN
         )
 

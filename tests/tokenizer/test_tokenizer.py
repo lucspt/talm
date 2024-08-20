@@ -4,7 +4,7 @@ from tempfile import mkdtemp
 
 import pytest
 
-from project_llm.tokenizer.config import TokenizerConfig
+from project_llm.config.tokenizer import TokenizerConfig
 from project_llm.tokenizer.trainer import Trainer
 from project_llm.tokenizer.tokenizer import Tokenizer
 

@@ -3,11 +3,8 @@ import base64
 from pathlib import Path
 
 from ..types import PathLike
-from .config import TokenizerConfig
 from ..logger import create_logger
 from .tokenizer import Pair, Merges, Decoder, Tokenizer
-
-config = TokenizerConfig()
 
 logger = create_logger(__name__)
 

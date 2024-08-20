@@ -1,7 +1,7 @@
 from pathlib import Path
 from argparse import ArgumentParser
 
-from ..tokenizer.config import TokenizerConfig
+from ..config.tokenizer import TokenizerConfig
 from ..tokenizer.trainer import Trainer
 
 config = TokenizerConfig()

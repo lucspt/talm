@@ -1,18 +1,15 @@
 from ast import literal_eval
 from base64 import b64decode
-from typing import ClassVar, Optional
+from typing import ClassVar, Iterable, Optional
 
 import regex  # type: ignore
 from regex import Pattern
 
 from ..types import PathLike
-from .config import TokenizerConfig
 
 Pair = tuple[int, int]
 Decoder = dict[int, bytes]
 Merges = dict[Pair, int]
-
-config = TokenizerConfig()
 
 
 class Tokenizer:
@@ -28,6 +25,7 @@ class Tokenizer:
     merges: Merges
     special_tokens_encoder: dict[str, int]
     special_tokens_decoder: dict[int, bytes]
+    special_tokens_pattern: str
 
     regex_pattern: ClassVar[Pattern[str]] = regex.compile(
         r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
@@ -35,28 +33,37 @@ class Tokenizer:
     n_vocab: int
 
     def __init__(
-        self, decoder: Decoder, merges: Merges, special_tokens: set[str]
+        self,
+        decoder: Decoder,
+        merges: Merges,
+        special_tokens: Optional[Iterable[str]] = None,
     ) -> None:
         self.merges = merges
         self.decoder = decoder
         self.n_vocab = len(decoder)
+        self.special_tokens_pattern: Optional[str]
+        if special_tokens is not None:
+            special_tokens = set(special_tokens).union({"<|endoftext|>"})
+        else:
+            special_tokens = {"<|endoftext|>"}
         self.__configure_special_tokens(special_tokens)
-        self.special_tokens_pattern = (
-            "(" + "|".join(regex.escape(s) for s in special_tokens) + ")"
-        )
 
     def __configure_special_tokens(self, special_tokens: set[str]) -> None:
-        dec, enc = {}, {}
-        for n, spt in zip(
-            range(self.n_vocab, self.n_vocab + len(special_tokens)), special_tokens
-        ):
+        dec, enc, n = {}, {}, len(special_tokens)
+        for n, spt in zip(range(self.n_vocab, self.n_vocab + n), special_tokens):
             dec[n] = spt.encode("utf-8")
             enc[spt] = n
         self.special_tokens_decoder = dec
         self.special_tokens_encoder = enc
+        self.special_tokens_pattern = (
+            "(" + "|".join(regex.escape(s) for s in special_tokens) + ")"
+        )
+        self.n_vocab += n
 
     @staticmethod
-    def from_file(fp: PathLike) -> "Tokenizer":
+    def from_file(
+        fp: PathLike, special_tokens: Optional[Iterable[str]] = None
+    ) -> "Tokenizer":
         with open(fp, "r") as f:
             content = f.read()
             after_vocab = content.partition("[vocab]\n")[2]
@@ -71,9 +78,7 @@ class Tokenizer:
                     line.split() for line in merges_str.splitlines() if line
                 )
             }
-        return Tokenizer(
-            decoder=decoder, merges=merges, special_tokens=config.special_tokens
-        )
+        return Tokenizer(decoder=decoder, merges=merges, special_tokens=special_tokens)
 
     @staticmethod
     def count_pairs(
@@ -143,7 +148,7 @@ class Tokenizer:
             allow_special (bool): Whether or not to consider any of the tokenizer's
                 special_tokens when encoding. Defaults to `False`.
         """
-        if allow_special:
+        if allow_special and self.special_tokens_pattern:
             tokens = []
             specials_split: list[str] = regex.split(self.special_tokens_pattern, text)
             special_toks = self.special_tokens_encoder
@@ -159,5 +164,8 @@ class Tokenizer:
     def decode(self, tokens: list[int]) -> str:
         """Decode the given tokens to a string."""
         dec, special_dec = self.decoder, self.special_tokens_decoder
-        bts = [special_dec[t] if t in special_dec else dec[t] for t in tokens]
+        if special_dec:
+            bts = [special_dec[t] if t in special_dec else dec[t] for t in tokens]
+        else:
+            bts = [dec[t] for t in tokens]
         return b"".join(bts).decode("utf-8", errors="replace")

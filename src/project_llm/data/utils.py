@@ -4,11 +4,10 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from .config import DataConfig
+from ..types import PathLike
 
 Split = Literal["train", "val"]
 ShardGenerator = Generator[tuple[torch.Tensor, torch.Tensor], None, None]
-config = DataConfig()
 
 
 class TokensShard:
@@ -57,7 +56,7 @@ class ShardedDataLoader:
         split: Split,
         batch_size: int,
         context_len: int,
-        dirname: str | Path = config.save_dir,
+        dirname: PathLike,
     ):
         """Initialize a sharded text dataloader.
 
