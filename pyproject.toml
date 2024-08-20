@@ -13,6 +13,7 @@ requires-python = ">= 3.12"
 [project.scripts]
 train_tokenizer = "project_llm.scripts.train_tokenizer:main"
 download_data = "project_llm.scripts.download_fineweb:main"
+train_model = "project_llm.scripts.train_model:main"
 
 [tool.rye]
 managed = true
@@ -75,7 +76,8 @@ omit = [
    "scripts/*",
    "download_fineweb.py",
    "train_tokenizer.py",
-   "logger.py"
+   "logger.py",
+   "train_model.py"
 ]
 
 [tool.coverage.report]

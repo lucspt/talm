@@ -66,18 +66,18 @@ class Tokenizer:
     ) -> "Tokenizer":
         with open(fp, "r") as f:
             content = f.read()
-            after_vocab = content.partition("[vocab]\n")[2]
-            vocab, _, merges_str = after_vocab.partition("[merges]\n")
-            decoder: Decoder = {
-                int(v): b64decode(k)
-                for k, v in (line.split() for line in vocab.splitlines() if line)
-            }
-            merges: Merges = {
-                literal_eval("".join(pair)): int(token)
-                for *pair, token in (
-                    line.split() for line in merges_str.splitlines() if line
-                )
-            }
+        after_vocab = content.partition("[vocab]\n")[2]
+        vocab, _, merges_str = after_vocab.partition("[merges]\n")
+        decoder: Decoder = {
+            int(v): b64decode(k)
+            for k, v in (line.split() for line in vocab.splitlines() if line)
+        }
+        merges: Merges = {
+            literal_eval("".join(pair)): int(token)
+            for *pair, token in (
+                line.split() for line in merges_str.splitlines() if line
+            )
+        }
         return Tokenizer(decoder=decoder, merges=merges, special_tokens=special_tokens)
 
     @staticmethod
