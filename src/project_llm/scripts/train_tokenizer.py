@@ -1,8 +1,8 @@
 from pathlib import Path
 from argparse import ArgumentParser
 
-from .config import TokenizerConfig
-from .trainer import Trainer
+from ..tokenizer.config import TokenizerConfig
+from ..tokenizer.trainer import Trainer
 
 config = TokenizerConfig()
 
@@ -21,6 +21,7 @@ args = parser.parse_args()
 
 def main() -> None:
     trainer = Trainer()
+    config.save_path.parent.mkdir(exist_ok=True)
     vocab_size, filename = args.vocab_size, Path.cwd() / args.filename
     with open(config.train_text_file, "r") as f:
         text = f.read()[: int(1e6)]

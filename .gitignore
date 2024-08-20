@@ -26,5 +26,7 @@ htmlcov/
 # .env files
 *.env
 
-# data files
-_data/
+# data files / registry directories
+/data
+/tokenizer
+/models

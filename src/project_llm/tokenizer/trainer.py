@@ -1,16 +1,15 @@
 import sys
 import base64
-from logging import INFO, getLogger, basicConfig
 from pathlib import Path
 
+from ..types import PathLike
 from .config import TokenizerConfig
+from ..logger import create_logger
 from .tokenizer import Pair, Merges, Decoder, Tokenizer
 
 config = TokenizerConfig()
 
-basicConfig()
-logger = getLogger(__name__)
-logger.setLevel(INFO)
+logger = create_logger(__name__)
 
 
 class Trainer:
@@ -21,7 +20,7 @@ class Trainer:
     def __init__(self) -> None:
         self.regex_pattern = Tokenizer.regex_pattern
 
-    def train(self, text: str, vocab_size: int, fp: str) -> str:
+    def train(self, text: str, vocab_size: int, fp: PathLike) -> str:
         """Train a new tokenizer.
 
         Args:
@@ -73,7 +72,7 @@ class Trainer:
             f"{base64.b64encode(v).decode("utf-8")} {k}\n" for k, v in decoder.items()
         )
 
-    def save(self, fp: str, decoder: Decoder, merges: Merges) -> str:
+    def save(self, fp: PathLike, decoder: Decoder, merges: Merges) -> str:
         """Serialize and save the tokenizer to file `fp`"""
         with open(fp, "w") as f:
             f.writelines(
@@ -87,4 +86,4 @@ class Trainer:
             )
 
         logger.info(f"Tokenizer data saved to {fp}")
-        return fp
+        return str(fp)

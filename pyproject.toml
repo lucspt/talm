@@ -11,8 +11,8 @@ readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.scripts]
-train_tokenizer = "project_llm.tokenizer.train:main"
-download_data = "project_llm.data.download:main"
+train_tokenizer = "project_llm.scripts.train_tokenizer:main"
+download_data = "project_llm.scripts.download_fineweb:main"
 
 [tool.rye]
 managed = true
@@ -72,8 +72,9 @@ markers = "slow: mark tests as slow"
 
 [tool.coverage.run]
 omit = [
-   "train.py",
-   "download.py",
+   "scripts/*",
+   "download_fineweb.py",
+   "train_tokenizer.py",
    "logger.py"
 ]
 

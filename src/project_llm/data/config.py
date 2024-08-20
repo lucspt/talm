@@ -12,4 +12,4 @@ class DataConfig:
     dataset_name: str = "HuggingFaceFW/fineweb"
     dataset_sample: str = "sample-10BT"
     save_dir: Path = root_config.dataset_dir
-    tokenizer_path: str = root_config.tokenizer_path
+    tokenizer_path: Path = root_config.tokenizer_path

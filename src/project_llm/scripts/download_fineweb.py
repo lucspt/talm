@@ -9,13 +9,13 @@ from tqdm import tqdm  # type: ignore
 from datasets import DatasetDict, load_dataset  # type: ignore
 from numpy.typing import NDArray, ArrayLike
 
-from .config import DataConfig
-from ..logger import get_logger
+from ..logger import create_logger
+from ..data.config import DataConfig
 from ..tokenizer.tokenizer import Tokenizer
 
 config = DataConfig()
 
-logger = get_logger(__name__)
+logger = create_logger(__name__)
 
 
 def abort_if_data_dir_not_empty() -> None:
@@ -67,7 +67,7 @@ def tokenize(ds_example: DatasetDict) -> NDArray[np.uint16]:
 
 def main() -> None:
     abort_if_data_dir_not_empty()
-    config.save_dir.mkdir(exist_ok=True)
+    config.save_dir.mkdir(exist_ok=True, parents=True)
     ds = load_dataset(
         config.dataset_name, name=config.dataset_sample, streaming=True, split="train"
     )

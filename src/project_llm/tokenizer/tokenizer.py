@@ -5,6 +5,7 @@ from typing import ClassVar, Optional
 import regex  # type: ignore
 from regex import Pattern
 
+from ..types import PathLike
 from .config import TokenizerConfig
 
 Pair = tuple[int, int]
@@ -55,7 +56,7 @@ class Tokenizer:
         self.special_tokens_encoder = enc
 
     @staticmethod
-    def from_file(fp: str) -> "Tokenizer":
+    def from_file(fp: PathLike) -> "Tokenizer":
         with open(fp, "r") as f:
             content = f.read()
             after_vocab = content.partition("[vocab]\n")[2]
