@@ -31,7 +31,7 @@ def tokenizer_path() -> Generator[Path, None, None]:
 def train_tokenizer(tokenizer_path: Path) -> None:
     """Create / train tokenizer and return the file pointing to it"""
     trainer = Trainer()
-    trainer.train(text="\n".join(TRAIN_DATA), vocab_size=300, fp=str(tokenizer_path))
+    trainer.train(text="".join(TRAIN_DATA), vocab_size=300, fp=str(tokenizer_path))
 
 
 @pytest.fixture(scope="module")

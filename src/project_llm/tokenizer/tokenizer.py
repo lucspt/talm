@@ -1,8 +1,9 @@
 from ast import literal_eval
 from base64 import b64decode
-from typing import Optional
+from typing import ClassVar, Optional
 
 import regex  # type: ignore
+from regex import Pattern
 
 from .config import TokenizerConfig
 
@@ -19,6 +20,7 @@ class Tokenizer:
     Attributes:
         decoder (dict[int, bytes]): A mapping specifying integer ids to their corresponding bytes.
         special_tokens (set[str]): A set of special tokens for the tokenizer to consider
+        regex
     """
 
     decoder: dict[int, bytes]
@@ -26,7 +28,7 @@ class Tokenizer:
     special_tokens_encoder: dict[str, int]
     special_tokens_decoder: dict[int, bytes]
 
-    regex_pattern = regex.compile(
+    regex_pattern: ClassVar[Pattern[str]] = regex.compile(
         r"""'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"""
     )
     n_vocab: int
