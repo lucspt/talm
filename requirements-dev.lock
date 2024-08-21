@@ -75,6 +75,7 @@ pandas==2.2.2
     # via datasets
 pluggy==1.5.0
     # via pytest
+progress-bar @ git+https://github.com/lucspt/progress-bar.git@b5a371b57aba02d3107a88eb199f13837f6e11be
 pyarrow==17.0.0
     # via datasets
 pyarrow-hotfix==0.6
