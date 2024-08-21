@@ -92,8 +92,9 @@ def main() -> None:
     config = TokenizerConfig()
 
     parser = ArgumentParser(
-        prog="Train tokenizer",
+        prog="train_tokenizer",
         description="Train a tokenizer on a small sample of the FineWeb text dataset",
+        usage="train_tokenizer <VOCAB_SIZE> <TOKENIZER_NAME>"
     )
     parser.add_argument("-vs", "--vocab_size", dest="vocab_size", type=int)
     parser.add_argument("-n", "--name", dest="tokenizer_name", type=str)

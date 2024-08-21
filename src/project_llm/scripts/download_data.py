@@ -108,7 +108,7 @@ def main() -> None:
     parser = ArgumentParser(
         prog="download_data",
         description="Shard and save the specified dataset to disk",
-        usage=f"download_data <ds-name> [--ds-sample]",
+        usage=f"download_data <ds-name> [DS-SAMPLE]",
     )
 
     parser.add_argument(
