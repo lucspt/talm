@@ -24,7 +24,8 @@ class Model(nn.Module):
 
         Args:
             n_embd (int): The number of embedding dimensions.
-            n_head (int): The number of heads to create the transformer `DecoderBlocks` with.
+            n_head (int): The number of heads to create the transformer `DecoderBlock`s with.
+            n_block (int): The number of transformer decoder blocks to create.
             vocab_size (int): The vocab_size of the model. The number of possible token ids the model will output.
             context_len (int): The number of tokens a model can tend to during any forward pass.
             dropout (float): The amount of dropout to apply to the model, defaults to `0.0`.
