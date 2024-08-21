@@ -13,7 +13,7 @@ requires-python = ">= 3.12"
 [project.scripts]
 train_tokenizer = "project_llm.scripts.train_tokenizer:main"
 download_data = "project_llm.scripts.download_data:main"
-train_model = "project_llm.scripts.train_model:main"
+train_model = "project_llm.scripts.model.pretrain:main"
 
 [tool.rye]
 managed = true
@@ -74,11 +74,11 @@ markers = "slow: mark tests as slow"
 
 [tool.coverage.run]
 omit = [
-   "scripts/*",
+   "**/scripts/*",
    "download_data.py",
    "train_tokenizer.py",
    "logger.py",
-   "train_model.py"
+   "pretrain.py"
 ]
 
 [tool.coverage.report]
