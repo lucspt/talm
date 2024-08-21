@@ -5,8 +5,8 @@ from tempfile import mkdtemp
 import pytest
 
 from project_llm.config.tokenizer import TokenizerConfig
-from project_llm.tokenizer.trainer import Trainer
 from project_llm.tokenizer.tokenizer import Tokenizer
+from project_llm.scripts.train_tokenizer import Trainer
 
 config = TokenizerConfig()
 special_tokens = {"<|endoftext|>"}
@@ -31,7 +31,9 @@ def tokenizer_path() -> Generator[Path, None, None]:
 def train_tokenizer(tokenizer_path: Path) -> None:
     """Create / train tokenizer and return the file pointing to it"""
     trainer = Trainer()
-    trainer.train(text="".join(TRAIN_DATA), vocab_size=300, fp=str(tokenizer_path))
+    trainer.train_and_save(
+        text="".join(TRAIN_DATA), vocab_size=300, fp=str(tokenizer_path)
+    )
 
 
 @pytest.fixture(scope="module")

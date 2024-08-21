@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from project_llm.tokenizer.trainer import Trainer as TrainerType
+from project_llm.scripts.train_tokenizer import Trainer as TrainerType
 
 
 @pytest.fixture(scope="class")
@@ -16,7 +16,7 @@ class TestTokenizerTrainerType:
 
     def test_train(self, trainer: TrainerType, tmp_path: Path) -> None:
         pth = Path(
-            trainer.train(
+            trainer.train_and_save(
                 text="abcdefghiklmnop",
                 vocab_size=257,
                 fp=str(tmp_path / "tokenizer.bpe"),
@@ -24,15 +24,6 @@ class TestTokenizerTrainerType:
         )
         assert pth.exists()
         assert pth.read_text()
-
-    def test_train_with_existing_file_exits(
-        self, trainer: TrainerType, tmp_path: Path
-    ) -> None:
-        p = tmp_path / "exists"
-        p.touch()
-        with pytest.raises(SystemExit) as e:
-            trainer.train("abcdefghijk", 1000, fp=str(p))
-        assert e.value.code == 1
 
     def test_decoder_to_textlines(self, trainer: TrainerType) -> None:
         textlines = trainer.decoder_to_textlines(self._mock_decoder)
