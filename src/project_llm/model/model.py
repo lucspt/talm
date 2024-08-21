@@ -14,6 +14,7 @@ class Model(nn.Module):
         self,
         n_embd: int,
         n_head: int,
+        n_block: int,
         vocab_size: int,
         context_len: int,
         dropout: float = 0.0,
@@ -38,7 +39,7 @@ class Model(nn.Module):
                 DecoderBlock(
                     n_embd=n_embd, n_head=n_head, dropout=dropout, ln_eps=ln_eps
                 )
-                for _ in range(n_head)
+                for _ in range(n_block)
             )
         )
         self.ln_f = nn.LayerNorm(n_embd, eps=ln_eps)

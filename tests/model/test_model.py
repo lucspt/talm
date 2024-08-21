@@ -24,6 +24,7 @@ def model(device: str) -> Model:
     return Model(
         n_head=config.n_head,
         n_embd=config.n_embd,
+        n_block=config.n_transformer_blocks,
         context_len=config.context_len,
         vocab_size=vocab_size,
         dropout=config.dropout,
