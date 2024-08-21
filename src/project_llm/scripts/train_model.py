@@ -245,6 +245,7 @@ def main() -> None:
         parser = ArgumentParser(
             "train_model",
             description="Pre train a language model.",
+            usage="train_model <MODEL_NAME> <DATA_DIR>",
         )
         parser.add_argument(
             "-n", "--model-name", dest="model_name", required=True, type=str
