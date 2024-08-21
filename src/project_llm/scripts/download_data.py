@@ -1,7 +1,8 @@
 import os
 import sys
-from typing import Optional
+from typing import Literal, Optional
 from pathlib import Path
+from argparse import ArgumentParser
 from multiprocessing import Pool
 
 import numpy as np
@@ -15,16 +16,22 @@ from ..config.data import DataConfig
 from ..config.root import RootConfig
 from ..tokenizer.tokenizer import Tokenizer
 
+DatasetName = Literal["fineweb", "smol"]
+ALLOWED_DATASETS: tuple[DatasetName, ...] = ("fineweb", "smol")
+DS_SAMPLES = {
+    "fineweb": {"sample-10BT", "sample-100BT", "sample-350BT"},
+    "smol": {"python-edu", "fineweb-edu", "cosmopedia-v2"},
+}
+
 config = DataConfig()
 
 logger = create_logger(__name__)
 
 
-def abort_if_data_dir_not_empty() -> None:
-    save_dir = config.dataset_dir
-    if save_dir.exists() and not is_folder_empty(save_dir):
+def abort_if_dataset_dir_not_empty(dataset_dir: Path) -> None:
+    if dataset_dir.exists() and not is_folder_empty(dataset_dir):
         logger.error(
-            f"Dataset dir '{save_dir}' already exists, and is not empty. "
+            f"Dataset dir '{dataset_dir}' already exists, and is not empty. "
             "Aborting to not overwrite any files"
         )
         sys.exit(1)
@@ -67,12 +74,68 @@ def tokenize(ds_example: DatasetDict) -> NDArray[np.uint16]:
     return t
 
 
+def get_ds_sample(ds_name: DatasetName, sample: Optional[str]) -> str:
+    if not sample:
+        s = {
+            "fineweb": config.default_fineweb_dataset_sample,
+            "smol": config.default_smol_dataset_sample,
+        }[ds_name]
+        return s
+    elif sample not in DS_SAMPLES[ds_name]:
+        logger.error(
+            f"Invalid dataset sample {sample} for the specified dataset {ds_name}. "
+            f"Allowed samples are {", ".join(DS_SAMPLES[sample])}. Aborting."
+        )
+        sys.exit(1)
+    return sample
+
+
+def get_dataset(ds_name: DatasetName, sample: Optional[str]) -> DatasetDict:
+    if ds_name == "fineweb":
+        return load_dataset(
+            config.fineweb_dataset_name,
+            name=sample,
+            streaming=True,
+            split="train",
+        )
+    elif ds_name == "smol":
+        return load_dataset(
+            config.smol_dataset_name, streaming=True, name=sample, split="train"
+        )
+
+
 def main() -> None:
-    abort_if_data_dir_not_empty()
-    config.dataset_dir.mkdir(exist_ok=True, parents=True)
-    ds = load_dataset(
-        config.dataset_name, name=config.dataset_sample, streaming=True, split="train"
+    parser = ArgumentParser(
+        prog="download_data",
+        description="Shard and save the specified dataset to disk",
+        usage=f"download_data <ds-name> [--ds-sample]",
     )
+
+    parser.add_argument(
+        "ds_name",
+        choices=ALLOWED_DATASETS,
+        help="The name of the dataset to download.",
+    )
+
+    parser.add_argument(
+        "--ds-sample",
+        dest="ds_sample",
+        required=False,
+        help="An optional sample of the dataset to download.",
+        default=None,
+        type=str,
+    )
+
+    args = parser.parse_args()
+    ds_name: DatasetName = args.ds_name
+    _parsed_sample: Optional[str] = args.ds_sample
+    sample = get_ds_sample(ds_name, _parsed_sample)
+
+    dataset_dir = config.data_dir / ds_name / sample
+    abort_if_dataset_dir_not_empty(dataset_dir)
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    ds = get_dataset(ds_name, sample)
+
     num_procs = max(1, (os.cpu_count() or 1) // 2)
     shard_size = config.dataset_shard_size
     with Pool(num_procs) as p:
@@ -91,7 +154,7 @@ def main() -> None:
             else:
                 remainder = shard_size - token_count
                 all_tokens[token_count : token_count + remainder] = tokens[:remainder]
-                write_file(config.dataset_dir, all_tokens, shard)
+                write_file(dataset_dir, all_tokens, shard)
                 update_progress_bar(progress_bar, remainder)
                 shard += 1
                 progress_bar = None
@@ -99,4 +162,4 @@ def main() -> None:
                 token_count = length - remainder
 
         if token_count != 0:
-            write_file(config.dataset_dir, all_tokens[:token_count], shard)
+            write_file(dataset_dir, all_tokens[:token_count], shard)
