@@ -246,9 +246,15 @@ def main() -> None:
             "train_model",
             description="Pre train a language model.",
         )
-        parser.add_argument("-n", "--model-name", required=True, type=str)
+        parser.add_argument(
+            "-n", "--model-name", dest="model_name", required=True, type=str
+        )
+        parser.add_argument(
+            "-d", "--data-dir", dest="data_dir", required=True, type=str
+        )
         args = parser.parse_args()
         model_name: str = args.model_name
+        data_dir = args.data_dir
 
         tokenizer = Tokenizer.from_file(config.tokenizer_path)
 
@@ -256,14 +262,14 @@ def main() -> None:
             split="train",
             batch_size=config.batch_size,
             context_len=config.context_len,
-            dirname=config.dataset_dir,
+            dirname=data_dir,
         )
 
         val_dataloader = ShardedDataLoader(
             split="val",
             batch_size=config.batch_size,
             context_len=config.context_len,
-            dirname=config.dataset_dir,
+            dirname=data_dir,
         )
 
         model = Model(
