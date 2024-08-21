@@ -1,4 +1,4 @@
-from typing import Literal, Generator
+from typing import Literal, Optional, Generator
 from pathlib import Path
 
 import numpy as np
@@ -13,17 +13,33 @@ ShardGenerator = Generator[tuple[torch.Tensor, torch.Tensor], None, None]
 class TokensShard:
     """Class for loading a dataset shard file and its tokens"""
 
-    def __init__(self, path: str | Path):
+    def __init__(
+        self,
+        path: str | Path,
+        shuffle: bool = True,
+        generator: Optional[torch.Generator] = None,
+    ):
         self.path = path
-        self._len = len(self.tokens())
+        self._len: Optional[int] = None
+        self.shuffle = shuffle
+        self.generator = generator
 
     def __len__(self) -> int:
+        if self._len is None:
+            self._len = len(self.tokens())
         return self._len
 
     def tokens(self) -> torch.Tensor:
         """Load the tokens from the shard"""
         _tokens = torch.tensor(np.load(self.path).astype(np.int32), dtype=torch.long)
         return _tokens
+
+    def _shuffle_example(
+        self, x: torch.Tensor, y: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Shuffle a data example and it's targets."""
+        perm = torch.randperm(n=x.size(0), generator=self.generator)
+        return x[perm], y[perm]
 
     def _itershard(self, batch_size: int, context_len: int) -> ShardGenerator:
         """Iterate over the shard's tokens in chunks of `batch_size` where each batch contains `context_len` tokens.
@@ -37,15 +53,19 @@ class TokensShard:
             batch_size (int): How many batches to split the tokens into.
             context_len (int): The amount of tokens to create one example with.
         """
-        step = batch_size * context_len
+        step, do_shuffle = batch_size * context_len, self.shuffle
         tokens = self.tokens()
         for b in range(0, len(tokens), step):
             buf = tokens[b : b + step + 1]
             if buf.size(0) == step + 1:
-                yield (
+                x, y = (
                     buf[:-1].view(batch_size, context_len),
                     buf[1:].view(batch_size, context_len),
                 )
+                if do_shuffle:
+                    yield self._shuffle_example(x, y)
+                else:
+                    yield x, y
 
 
 class ShardedDataLoader:
@@ -57,6 +77,8 @@ class ShardedDataLoader:
         batch_size: int,
         context_len: int,
         dirname: PathLike,
+        shuffle: bool = True,
+        generator: Optional[torch.Generator] = None,
     ):
         """Initialize a sharded text dataloader.
 
@@ -64,16 +86,28 @@ class ShardedDataLoader:
             split (Literal["train", "val"]): The split of the dataloader.
             batch_size (int): The batch_size used when iterating tokens.
             context_len (int): The number of tokens in a single example of a batch.
+            dirname (PathLike): A `Path` or string pointing to the directory of the sharded dataset.
+            shuffle (bool): Whether or not to perform shuffling of the dataset. Defaults to `True`.
+            generator (torch.Generator, Optional): An optional torch.Generator object to use when generating
+                shuffles of the data. Only has an effect when `shuffle` is `True`.
         """
         shardpaths = Path(dirname).glob(f"{split}*")
-        self.shards = [TokensShard(p) for p in shardpaths]
-        self._total_tokens = sum(len(s) for s in self.shards)
+        self.shards = [
+            TokensShard(p, shuffle=shuffle, generator=generator) for p in shardpaths
+        ]
+        self._total_tokens: Optional[int] = None
         self.batch_size = batch_size
         self.context_len = context_len
 
+    @property
+    def total_tokens(self) -> int:
+        if self._total_tokens is None:
+            self._total_tokens = sum(len(s) for s in self.shards)
+        return self._total_tokens
+
     def __len__(self) -> int:
         tokens_per_batch = self.batch_size * self.context_len
-        return self._total_tokens // tokens_per_batch
+        return self.total_tokens // tokens_per_batch
 
     def itershards(self) -> ShardGenerator:
         """Iterates over the text shards and yields tensors of shape `(batch_size, context_len)`.
