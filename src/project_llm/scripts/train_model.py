@@ -307,8 +307,6 @@ def main() -> None:
             )
             sys.exit(1)
 
-        log_file.touch()
-
         paths.append(log_file)
 
         lr_max_steps = len(train_dataloader)
@@ -336,6 +334,8 @@ def main() -> None:
             lr_scheduler=lr_scheduler,
         )
 
+        n_params = sum(p.numel() for p in model.parameters())
+
         sys.stdout.write(
             "\n".join(
                 [
@@ -348,7 +348,7 @@ def main() -> None:
                     f"embedding size: {config.n_embd}",
                     f"batch size: {config.batch_size}",
                     f"n_epochs: {config.n_epochs}",
-                    "\n",
+                    f"number of model parameters: {n_params:,}" "\n",
                 ]
             )
         )
