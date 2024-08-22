@@ -3,6 +3,7 @@ import sys
 from typing import Literal, Optional
 from pathlib import Path
 from argparse import ArgumentParser
+from functools import partial
 from multiprocessing import Pool
 
 import numpy as np
@@ -13,7 +14,6 @@ from numpy.typing import NDArray, ArrayLike
 from ..logger import create_logger
 from .helpers import is_folder_empty
 from ..config.data import DataConfig
-from ..config.root import RootConfig
 from ..tokenizer.tokenizer import Tokenizer
 
 DatasetName = Literal["fineweb", "smol"]
@@ -44,23 +44,24 @@ def update_progress_bar(
     nth_shard: Optional[int] = None,
 ) -> tqdm:
     if bar is None:
-        bar = tqdm(total=total, desc=f"Shard {nth_shard}")
+        s = nth_shard + 1 if nth_shard == 0 else nth_shard
+        bar = tqdm(
+            total=total,
+            desc=f"Shard {s} ({"val" if nth_shard == 0 else "train"})",
+        )
     bar.update(n)
     return bar
 
 
-def write_file(dir: Path, tokens: ArrayLike, shard: int) -> None:
+def write_file(dir: Path, tokens: ArrayLike, shard: int) -> Path:
     split_prefix = "val" if shard == 0 else "train"
     shard = 1 if split_prefix == "val" else shard
     pth = dir / f"{split_prefix}_{shard:06d}"
-    logger.info(f"Saving new shard at {pth}")
     np.save(pth, tokens)
+    return pth
 
 
-tokenizer = Tokenizer.from_file(RootConfig.tokenizer_path)
-
-
-def tokenize(ds_example: DatasetDict) -> NDArray[np.uint16]:
+def tokenize(ds_example: DatasetDict, tokenizer: Tokenizer) -> NDArray[np.uint16]:
     tokens: NDArray[np.int64] = np.array(
         [
             tokenizer.special_tokens_encoder["<|endoftext|>"],
@@ -125,6 +126,14 @@ def main() -> None:
         default=None,
         type=str,
     )
+    parser.add_argument(
+        "-t",
+        "--tokenizer-path",
+        dest="tokenizer_path",
+        required=True,
+        help="The tokenizer to tokenize the data with",
+        type=str,
+    )
 
     args = parser.parse_args()
     ds_name: DatasetName = args.ds_name
@@ -136,20 +145,35 @@ def main() -> None:
     dataset_dir.mkdir(parents=True, exist_ok=True)
     ds = get_dataset(ds_name, sample)
 
+    tokenizer_path = Path(args.tokenizer_path)
+    if not tokenizer_path.exists():
+        logger.error(
+            f"The tokenizer path {tokenizer_path} does not exist.",
+            "Please specifiy a valid tokenizer path.",
+        )
+        sys.exit(1)
+
+    tokenizer = Tokenizer.from_file(tokenizer_path)
     num_procs = max(1, (os.cpu_count() or 1) // 2)
     shard_size = config.dataset_shard_size
+
+    map_fn = partial(tokenize, tokenizer=tokenizer)
+
     with Pool(num_procs) as p:
         all_tokens = np.zeros((shard_size,), dtype=np.uint16)
         shard = 0
         token_count = 0
         progress_bar: None | tqdm = None
 
-        for tokens in p.imap(tokenize, ds, chunksize=16):
+        for tokens in p.imap(map_fn, ds, chunksize=16):
             if (length := len(tokens)) + token_count < shard_size:
                 all_tokens[token_count : token_count + length] = tokens
                 token_count += length
                 progress_bar = update_progress_bar(
-                    progress_bar, length, shard_size, shard
+                    progress_bar,
+                    length,
+                    shard_size,
+                    shard,
                 )
             else:
                 remainder = shard_size - token_count
