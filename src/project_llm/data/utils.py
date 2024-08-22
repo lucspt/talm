@@ -16,7 +16,7 @@ class TokensShard:
     def __init__(
         self,
         path: str | Path,
-        shuffle: bool = True,
+        shuffle: bool = False,
         generator: Optional[torch.Generator] = None,
     ):
         self.path = path
