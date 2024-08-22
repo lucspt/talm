@@ -59,7 +59,7 @@ def main() -> None:
         parser = ArgumentParser(
             "train_model",
             description="Pre train a language model.",
-            usage="train_model <MODEL_NAME> <DATA_DIR>",
+            usage="train_model <MODEL_NAME> <DATA_DIR> [options]",
         )
         parser.add_argument(
             "-n", "--model-name", dest="model_name", required=True, type=str
@@ -67,17 +67,38 @@ def main() -> None:
         parser.add_argument(
             "-d", "--data-dir", dest="data_dir", required=True, type=str
         )
+        parser.add_argument(
+            "-s",
+            "--seed",
+            dest="seed",
+            required=False,
+            type=int,
+            default=None,
+        )
         args = parser.parse_args()
         model_name: str = args.model_name
         data_dir = args.data_dir
+        seed: int | None = args.seed
 
         tokenizer = Tokenizer.from_file(config.tokenizer_path)
+
+        generator = torch.Generator()
+
+        if seed is not None:
+            generator.manual_seed(seed)
+        else:
+            seed = generator.seed()
+            logger.info(
+                f"Seed argument was not specified, using randomly generated seed: {seed}"
+            )
 
         train_dataloader = ShardedDataLoader(
             split="train",
             batch_size=config.batch_size,
             context_len=config.context_len,
             dirname=data_dir,
+            shuffle=True,
+            generator=generator,
         )
 
         val_dataloader = ShardedDataLoader(
@@ -85,6 +106,7 @@ def main() -> None:
             batch_size=config.batch_size,
             context_len=config.context_len,
             dirname=data_dir,
+            shuffle=False,
         )
 
         model = Model(
@@ -154,6 +176,7 @@ def main() -> None:
             model_name=model_name,
             lr_scheduler=lr_scheduler,
             logger=logger,
+            seed=seed,
         )
 
         n_params = sum(p.numel() for p in model.parameters())

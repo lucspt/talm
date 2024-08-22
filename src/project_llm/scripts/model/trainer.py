@@ -39,6 +39,7 @@ class Trainer:
         checkpoint_dir: PathLike,
         lr_scheduler: CosineDecayLR,
         logger: Logger,
+        seed: int,
     ) -> None:
         """Initialize a model trainer.
 
@@ -61,6 +62,7 @@ class Trainer:
         else:
             self.device = "cpu"
 
+        self.seed = seed
         self.model_name = model_name
         self.optimizer = optimizer
         self.model = model.to(self.device)
@@ -94,6 +96,7 @@ class Trainer:
             "optimizer": self.optimizer.state_dict(),
             "step": self.current_step,
             "epoch": epoch,
+            "seed": self.seed,
         }
         self.checkpoint_dir.mkdir(exist_ok=True)
         f = self.checkpoint_dir / f"{filename}.pt"
