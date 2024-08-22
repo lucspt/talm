@@ -56,7 +56,6 @@ class TestShardedDataLoader:
             batch_size=cls.BATCH_SIZE,
             context_len=cls.CONTEXT_LEN,
             dirname=token_shard_path.parent,
-            shuffle=True,
         )
 
     def test_len(self, dataloader: ShardedDataLoader) -> None:
@@ -67,3 +66,19 @@ class TestShardedDataLoader:
         for x, y in dataloader.itershards():
             assert x.shape == expected_shape
             assert y.shape == expected_shape
+
+    def test_itershards_shuffled(
+        self, token_shard_path: Path, dataloader: ShardedDataLoader
+    ) -> None:
+        dataloader_noshuffle = ShardedDataLoader(
+            split="train",
+            batch_size=self.BATCH_SIZE,
+            context_len=self.CONTEXT_LEN,
+            dirname=token_shard_path.parent,
+            shuffle=False,
+        )
+
+        zipped_shards = zip(dataloader.itershards(), dataloader_noshuffle.itershards())
+        assert any(
+            (x_shuff != x).all().item() for (x, _), (x_shuff, _) in zipped_shards
+        )
