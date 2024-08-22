@@ -134,13 +134,24 @@ def main() -> None:
         help="The tokenizer to tokenize the data with",
         type=str,
     )
+    parser.add_argument(
+        "--dir-prefix",
+        dest="datadir_prefix",
+        type=str,
+        help="An optional prefix to add to the directory the data will be saved to",
+        required=False,
+        default=None,
+    )
 
     args = parser.parse_args()
     ds_name: DatasetName = args.ds_name
+    dir_prefix = args.datadir_prefix
     _parsed_sample: Optional[str] = args.ds_sample
     sample = get_ds_sample(ds_name, _parsed_sample)
 
-    dataset_dir = config.data_dir / ds_name / sample
+    dirname = f"{dir_prefix}_{sample}" if dir_prefix else sample
+
+    dataset_dir = config.data_dir / ds_name / dirname
     abort_if_dataset_dir_not_empty(dataset_dir)
     dataset_dir.mkdir(parents=True, exist_ok=True)
     ds = get_dataset(ds_name, sample)
