@@ -68,6 +68,14 @@ def main() -> None:
             "-d", "--data-dir", dest="data_dir", required=True, type=str
         )
         parser.add_argument(
+            "-t",
+            "--tokenizer-path",
+            dest="tokenizer_path",
+            required=True,
+            type=str,
+        )
+
+        parser.add_argument(
             "-s",
             "--seed",
             dest="seed",
@@ -79,8 +87,16 @@ def main() -> None:
         model_name: str = args.model_name
         data_dir = args.data_dir
         seed: int | None = args.seed
+        tokenizer_path: Path = Path(args.tokenizer_path)
 
-        tokenizer = Tokenizer.from_file(config.tokenizer_path)
+        if not tokenizer_path.exists():
+            logger.error(
+                f"The tokenizer path {tokenizer_path} does not exist. "
+                "Please specify a valid tokenizer path"
+            )
+            sys.exit(1)
+
+        tokenizer = Tokenizer.from_file(tokenizer_path)
 
         generator = torch.Generator()
 
