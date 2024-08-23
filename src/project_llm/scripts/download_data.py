@@ -9,12 +9,12 @@ from multiprocessing import Pool
 import numpy as np
 from tqdm import tqdm  # type: ignore
 from datasets import DatasetDict, load_dataset  # type: ignore
+from tokencoder import Tokenizer
 from numpy.typing import NDArray, ArrayLike
 
 from ..logger import create_logger
 from .helpers import is_folder_empty
 from ..config.data import DataConfig
-from ..tokenizer.tokenizer import Tokenizer
 
 DatasetName = Literal["fineweb", "smol"]
 ALLOWED_DATASETS: tuple[DatasetName, ...] = ("fineweb", "smol")
@@ -64,7 +64,7 @@ def write_file(dir: Path, tokens: ArrayLike, shard: int) -> Path:
 def tokenize(ds_example: DatasetDict, tokenizer: Tokenizer) -> NDArray[np.uint16]:
     tokens: NDArray[np.int64] = np.array(
         [
-            tokenizer.special_tokens_encoder["<|endoftext|>"],
+            tokenizer.eot_token,
             *tokenizer.encode_ordinary(ds_example["text"]),
         ]
     )

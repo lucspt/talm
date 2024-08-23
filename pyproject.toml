@@ -74,7 +74,8 @@ markers = "slow: mark tests as slow"
 
 [tool.coverage.run]
 omit = [
-   "**/scripts/*",
+   "*/scripts/*",
+   "*/config/*",
    "download_data.py",
    "train_tokenizer.py",
    "logger.py",
