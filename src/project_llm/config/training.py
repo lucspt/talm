@@ -10,3 +10,4 @@ class TrainingConfig:
     weight_decay: float = 0.01
     adam_betas: tuple[float, float] = field(default_factory=lambda: (0.9, 0.95))
     adam_eps: float = 1e-8
+    gradient_clip_value: float = 1.0
