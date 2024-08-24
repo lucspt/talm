@@ -21,9 +21,9 @@ class PositionalEncoding(nn.Module):
         self.position_embedding_table = nn.Embedding(context_len, n_embd)
 
     def forward(self, x: Tensor) -> Tensor:
-        tx = self.token_embedding_table(x)  # (B, n_embd)
+        tx = self.token_embedding_table(x)  # (B, seq_len, n_embd)
         posx = self.position_embedding_table(
             arange(x.size(1), device=x.device)
-        )  # (B, )
+        )  # (B, n_embd)
         out: Tensor = tx + posx
         return out
