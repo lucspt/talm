@@ -6,6 +6,9 @@ authors = []
 dependencies = [
     "regex>=2024.7.24",
     "torch>=2.4.0",
+    "tokencoder @ git+https://github.com/lucspt/tokencoder.git",
+    "gressbar @ git+https://github.com/lucspt/gressbar.git",
+    "datasets<=2.21.0",
 ]
 readme = "README.md"
 requires-python = ">= 3.12"
@@ -21,9 +24,7 @@ dev-dependencies = [
     "mypy>=1.10.1",
     "pytest-cov>=5.0.0",
     "ruff>=0.5.0",
-    "datasets<=2.21.0",
     "pytest-mock>=3.14.0",
-    "progress-bar @ git+https://github.com/lucspt/progress-bar.git",
 ]
 
 [[tool.rye.sources]]
@@ -76,10 +77,7 @@ markers = "slow: mark tests as slow"
 omit = [
    "*/scripts/*",
    "*/config/*",
-   "download_data.py",
-   "train_tokenizer.py",
    "logger.py",
-   "pretrain.py"
 ]
 
 [tool.coverage.report]

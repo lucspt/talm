@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 from torch import nn
-from progress_bar import ProgressBar
+from gressbar import ProgressBar
 
 from ...data import ShardedDataLoader
 from ...types import PathLike

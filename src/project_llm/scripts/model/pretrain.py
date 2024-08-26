@@ -3,6 +3,7 @@ from pathlib import Path
 from argparse import ArgumentParser
 
 import torch
+from tokencoder import Tokenizer
 
 from ...data import ShardedDataLoader
 from ...model import Model
@@ -10,7 +11,6 @@ from .trainer import Trainer
 from ...config import Config
 from ...logger import create_logger
 from ..helpers import is_file_empty, is_folder_empty
-from ...tokenizer import Tokenizer
 from ...lr_scheduler import CosineDecayLR
 
 
@@ -209,7 +209,8 @@ def main() -> None:
                     f"embedding size: {config.n_embd}",
                     f"batch size: {config.batch_size}",
                     f"n_epochs: {config.n_epochs}",
-                    f"number of model parameters: {n_params:,}" "\n",
+                    f"number of model parameters: {n_params:,}",
+                    "\n",
                 ]
             )
         )
