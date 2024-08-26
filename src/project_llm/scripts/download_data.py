@@ -85,7 +85,7 @@ def get_ds_sample(ds_name: DatasetName, sample: Optional[str]) -> str:
     elif sample not in DS_SAMPLES[ds_name]:
         logger.error(
             f"Invalid dataset sample {sample} for the specified dataset {ds_name}. "
-            f"Allowed samples are {", ".join(DS_SAMPLES[sample])}. Aborting."
+            f"Allowed samples are {", ".join(DS_SAMPLES[ds_name])}. Aborting."
         )
         sys.exit(1)
     return sample
