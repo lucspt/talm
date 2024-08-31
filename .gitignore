@@ -28,6 +28,5 @@ htmlcov/
 
 # data files / registry directories
 /data
-/tokenizers
 /models
 /logs
