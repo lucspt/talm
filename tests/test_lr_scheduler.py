@@ -2,7 +2,7 @@ import torch
 import pytest
 from torch import nn
 
-from project_llm.lr_scheduler import CosineDecayLR
+from talm.lr_scheduler import CosineDecayLR
 
 
 class TestCosineDecayLR:

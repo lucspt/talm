@@ -2,7 +2,7 @@ import torch
 import pytest
 from pytest_mock import MockerFixture
 
-from project_llm.model.attention import CausalSelfAttention
+from talm.model.attention import CausalSelfAttention
 
 n_head = 4
 n_embd = n_head * 3
@@ -46,7 +46,7 @@ class TestCausalSelfAttention:
     def test_dropout_used_correctly(
         self, dropout_p: float, mock_inputs: torch.Tensor, mocker: MockerFixture
     ) -> None:
-        from project_llm.model.attention import nn as nn_spy  # type: ignore
+        from talm.model.attention import nn as nn_spy  # type: ignore
 
         dropout_spy = mocker.spy(nn_spy, "Dropout")
         c = CausalSelfAttention(n_embd=n_embd, n_head=n_head, dropout=dropout_p)
@@ -58,7 +58,7 @@ class TestCausalSelfAttention:
         mocker: MockerFixture,
         mock_inputs: torch.Tensor,
     ) -> None:
-        from project_llm.model.attention import F as F_spy  # type: ignore
+        from talm.model.attention import F as F_spy  # type: ignore
 
         spy = mocker.spy(F_spy, "scaled_dot_product_attention")
         c_attn.eval()

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 @dataclass
 class RootConfig:
-    dirname: Path = Path(__file__).parent.parent  # repo/src/project_llm
+    dirname: Path = Path(__file__).parent.parent  # repo/src/talm
     repo_root: Path = dirname.parent.parent  # /repo
     data_dir: Path = repo_root / "data"
     model_dir: Path = repo_root / "models"

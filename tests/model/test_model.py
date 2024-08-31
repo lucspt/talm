@@ -4,8 +4,8 @@ import string
 import torch
 import pytest
 
-from project_llm.model.model import Model
-from project_llm.config.model import ModelConfig
+from talm.model.model import Model
+from talm.config.model import ModelConfig
 
 config = ModelConfig()
 

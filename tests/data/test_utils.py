@@ -6,8 +6,8 @@ import numpy as np
 import torch
 import pytest
 
-from project_llm.data.utils import TokensShard, ShardedDataLoader
-from project_llm.config.data import DataConfig
+from talm.data.utils import TokensShard, ShardedDataLoader
+from talm.config.data import DataConfig
 
 config = DataConfig()
 

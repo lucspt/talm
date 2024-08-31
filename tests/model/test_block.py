@@ -1,7 +1,7 @@
 import torch
 import pytest
 
-from project_llm.model.block import DecoderBlock
+from talm.model.block import DecoderBlock
 
 n_head = 4
 n_embd = 12

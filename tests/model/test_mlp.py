@@ -2,7 +2,7 @@ import torch
 import pytest
 from pytest_mock import MockerFixture
 
-from project_llm.model.mlp import MLP
+from talm.model.mlp import MLP
 
 
 def test_output_shape() -> None:
@@ -15,7 +15,7 @@ def test_output_shape() -> None:
 
 @pytest.mark.parametrize("dropout_p", [0.1, 0.0])
 def test_dropout_is_used_correctly(dropout_p: float, mocker: MockerFixture) -> None:
-    from project_llm.model.mlp import nn as nn_spy  # type: ignore
+    from talm.model.mlp import nn as nn_spy  # type: ignore
 
     spy = mocker.spy(nn_spy, "Dropout")
     MLP(n_embd=64, dropout=dropout_p)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from project_llm.scripts.helpers import is_file_empty, is_folder_empty
+from talm.scripts.helpers import is_file_empty, is_folder_empty
 
 
 def test_is_folder_empty(tmp_path: Path) -> None:

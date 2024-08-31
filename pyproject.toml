@@ -1,5 +1,5 @@
 [project]
-name = "project_llm"
+name = "talm"
 version = "0.1.0"
 description = "Add your description here"
 authors = []
@@ -14,9 +14,9 @@ readme = "README.md"
 requires-python = ">= 3.12"
 
 [project.scripts]
-train_tokenizer = "project_llm.scripts.train_tokenizer:main"
-download_data = "project_llm.scripts.download_data:main"
-train_model = "project_llm.scripts.model.pretrain:main"
+train_tokenizer = "talm.scripts.train_tokenizer:main"
+download_data = "talm.scripts.download_data:main"
+train_model = "talm.scripts.model.pretrain:main"
 
 [tool.rye]
 managed = true
@@ -67,7 +67,7 @@ select = [
 length-sort = true
 length-sort-straight = true
 combine-as-imports = true
-known-first-party = ["project_llm", "tests"]
+known-first-party = ["talm", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -87,4 +87,4 @@ fail_under = 90
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/project_llm"]
+packages = ["src/talm"]

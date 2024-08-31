@@ -2,7 +2,7 @@ import torch
 import pytest
 from pytest_mock import MockerFixture
 
-from project_llm.model.encoding import PositionalEncoding
+from talm.model.encoding import PositionalEncoding
 
 n_embd = 32
 vocab_size = 4
