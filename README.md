@@ -1,6 +1,6 @@
 # talm 
 
-Welcome to `talm`, short for train-a-language-model. 
+Welcome to `talm`, short for train a language model. 
 
 This is a project I created with scripts for training your own language model "from scratch". 
 
@@ -66,7 +66,7 @@ in `./tiny-shakespeare.txt`, but you can also specify your own text file.
 
 Now, you will need to download a dataset.
 
-You can do so with the rye command:
+You can do so with the command:
 
 ```text
 rye run download_data <ds-name> [OPTIONS]
@@ -89,7 +89,7 @@ options:
                         An optional prefix to add to the directory the data will be saved to
 ```
 
-They are all optional, note that if you skipped the previous step of training a tokenizer, 
+They are all optional. Note that if you skipped the previous step of training a tokenizer, 
 the default tokenizer will be used, which is located in `tokenizers/base.json`.
 
 So, a valid command would be:
@@ -105,12 +105,12 @@ That's it for downloading data.
 ## 4. Train a model
 > [!WARNING]
 By default the tokenizer that's used for training is located in `tokenizers/base.json`. 
-If the dataset your using was downloaded with your own tokenizer, don't forget to use the 
+If the dataset you're using was downloaded with your own tokenizer, don't forget to use the 
 same one for model training by specifying the `--tokenizer-path` option.
 
 Finally, you can train your model.
 
-Use the pre-training script like so:
+Start the pre-training script like so:
 
 ```
 rye run train_model [OPTIONS]
@@ -132,10 +132,11 @@ Thus, a valid command for model training would be:
 
 `rye run train_model -n example_model --data-dir data/fineweb/sample-10BT`.
 
-If you'd like to customize training further, you can do so by modifying the 
-configuration files. 
 
 ### Modifying Configuration
+
+If you'd like to customize training further, you can do so by modifying the 
+configuration files. 
 
 To modify training configuration such as batch size, number of epochs, etc, 
 edit the [training configuration class](./src/talm/config/training.py).
@@ -146,7 +147,7 @@ To modify model-specific configuration, like dimension sizes, edit the
 ### SFT, RLHF
 
 Right now, only pre-training a model is supported. In the future,
-supervised-fine-tuning and RLHF scripts may be implemented.
+supervised fine tuning and RLHF may be implemented.
 
 ## Wrapping up
 
