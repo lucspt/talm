@@ -45,9 +45,12 @@ rye run train_tokenizer [OPTIONS]
 Here are the options:
 ```text
 options:
-  -vs VOCAB_SIZE, --vocab_size VOCAB_SIZE
+  -vs VOCAB_SIZE, --vocab-size VOCAB_SIZE
+                        The desired vocab size
   -n TOKENIZER_NAME, --name TOKENIZER_NAME
-  --text_file TEXT_FILE
+                        The name of this tokenizer
+  --text-file TEXT_FILE
+                        A text file to train the tokenizer on
 ```
 
 You must specify the vocab size and tokenizer name in order to train a tokenizer, for example:
@@ -82,8 +85,8 @@ options:
                         An optional sample of the dataset to download.
   -t TOKENIZER_PATH, --tokenizer-path TOKENIZER_PATH
                         The tokenizer to tokenize the data with
-  --dir-prefix
-                An optional prefix to add to the directory the data will be saved to
+  --dir-prefix DATADIR_PREFIX
+                        An optional prefix to add to the directory the data will be saved to
 ```
 
 They are all optional, note that if you skipped the previous step of training a tokenizer, 
