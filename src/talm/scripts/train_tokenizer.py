@@ -15,10 +15,28 @@ def main() -> None:
         description="Train a tokenizer on a small sample of the FineWeb text dataset",
         usage="train_tokenizer <VOCAB_SIZE> <TOKENIZER_NAME>",
     )
-    parser.add_argument("-vs", "--vocab_size", dest="vocab_size", type=int)
-    parser.add_argument("-n", "--name", dest="tokenizer_name", type=str)
     parser.add_argument(
-        "--text_file", dest="text_file", default=config.tokenizer_train_file, type=str
+        "-vs",
+        "--vocab_size",
+        dest="vocab_size",
+        type=int,
+        help="The desired vocab size",
+        required=True,
+    )
+    parser.add_argument(
+        "-n",
+        "--name",
+        dest="tokenizer_name",
+        type=str,
+        help="The name of this tokenizer",
+        required=True,
+    )
+    parser.add_argument(
+        "--text_file",
+        dest="text_file",
+        default=config.tokenizer_train_file,
+        type=str,
+        help="A text file to train the tokenizer on",
     )
 
     args = parser.parse_args()
@@ -35,7 +53,7 @@ def main() -> None:
     save_dir = config.registry_dir
 
     with open(train_text_file, "r") as f:
-        text = f.read()[: int(1e6)]
+        text = f.read()
 
     logger.info(f"Training tokenizer with a vocab size of {vocab_size}")
     pth = trainer.train(text=text, vocab_size=vocab_size, save_dir=save_dir)

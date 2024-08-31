@@ -130,9 +130,10 @@ def main() -> None:
         "-t",
         "--tokenizer-path",
         dest="tokenizer_path",
-        required=True,
+        required=False,
         help="The tokenizer to tokenize the data with",
         type=str,
+        default="tokenizers/base.json",
     )
     parser.add_argument(
         "--dir-prefix",

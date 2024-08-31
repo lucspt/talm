@@ -71,7 +71,8 @@ def main() -> None:
             "-t",
             "--tokenizer-path",
             dest="tokenizer_path",
-            required=True,
+            required=False,
+            default=config.tokenizer_dir / "base.json",
             type=str,
         )
 
