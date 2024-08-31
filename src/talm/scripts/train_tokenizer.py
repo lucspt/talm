@@ -17,7 +17,7 @@ def main() -> None:
     )
     parser.add_argument(
         "-vs",
-        "--vocab_size",
+        "--vocab-size",
         dest="vocab_size",
         type=int,
         help="The desired vocab size",
@@ -32,7 +32,7 @@ def main() -> None:
         required=True,
     )
     parser.add_argument(
-        "--text_file",
+        "--text-file",
         dest="text_file",
         default=config.tokenizer_train_file,
         type=str,
