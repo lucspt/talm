@@ -58,6 +58,7 @@ class TestModel:
         self, model: Model, mock_inputs_and_labels: tuple[torch.Tensor, torch.Tensor]
     ) -> None:
         logits, _ = model(mock_inputs_and_labels[0])
+        print(logits.shape)
         assert isinstance(logits, torch.Tensor)
         assert logits.shape == (self.B, self.T, vocab_size)
 

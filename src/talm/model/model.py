@@ -3,7 +3,7 @@ from typing import Optional
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from .modules import RMSNorm, DecoderBlock, PositionalEncoding
+from .modules import RMSNorm, DecoderBlock
 
 
 class Model(nn.Module):
@@ -31,13 +31,15 @@ class Model(nn.Module):
             norm_eps (float): This value will be given as the `eps` argument to all `RMSNorm` layers within the model.
         """
         super().__init__()
-        self.positional_encoding = PositionalEncoding(
-            n_embd=n_embd, vocab_size=vocab_size, context_len=context_len
-        )
+        self.tok_embedding = nn.Embedding(vocab_size, n_embd)
         self.decoder = nn.Sequential(
             *(
                 DecoderBlock(
-                    n_embd=n_embd, n_head=n_head, dropout=dropout, norm_eps=norm_eps
+                    n_embd=n_embd,
+                    n_head=n_head,
+                    dropout=dropout,
+                    norm_eps=norm_eps,
+                    max_seq_len=context_len * 2,
                 )
                 for _ in range(n_block)
             )
@@ -54,7 +56,7 @@ class Model(nn.Module):
     def forward(
         self, x: Tensor, target: Optional[Tensor] = None
     ) -> tuple[Tensor, Optional[Tensor]]:
-        x = self.positional_encoding(x)
+        x = self.tok_embedding(x)
         x = self.decoder(x)
         x = self.norm(x)
         logits: Tensor = self.lm_head(x)

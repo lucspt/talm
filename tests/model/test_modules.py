@@ -5,53 +5,56 @@ from pytest_mock import MockerFixture
 from talm.model.modules import (
     MLP,
     DecoderBlock,
-    PositionalEncoding,
     CausalSelfAttention,
+    RotaryPositionalEmbedding,
 )
 
 
-class TestPositionalEncoding:
+class TestRotaryPositionalEmbedding:
     n_embd = 32
     vocab_size = 4
     batch_size = 10
     context_len = 4
+    n_head = 2
+    head_dim = n_embd // n_head
+
+    def test_raises_if_dim_not_even(self) -> None:
+        with pytest.raises(ValueError):
+            RotaryPositionalEmbedding(dim=31, max_seq_len=100)
 
     @pytest.fixture
-    def inputs(
-        self,
-    ) -> torch.Tensor:
-        return torch.randint(
-            0,
-            self.vocab_size,
-            (
-                self.batch_size,
-                self.vocab_size,
-            ),
+    def inputs(self) -> torch.Tensor:
+        # mock the ouputs of attention key / query
+        # these are applied before we turn each head into a batch dimension
+        return torch.randn(
+            self.batch_size, self.context_len, self.n_head, self.head_dim
         )
 
     @pytest.fixture()
-    def pos_enc(self) -> PositionalEncoding:
-        return PositionalEncoding(
-            n_embd=self.n_embd, vocab_size=self.vocab_size, context_len=self.context_len
+    def pos_emb(self) -> RotaryPositionalEmbedding:
+        return RotaryPositionalEmbedding(
+            dim=self.head_dim, max_seq_len=self.context_len * 2
         )
 
     def test_output_shape(
-        self, pos_enc: PositionalEncoding, inputs: torch.Tensor
+        Self, pos_emb: RotaryPositionalEmbedding, inputs: torch.Tensor
     ) -> None:
-        out = pos_enc(inputs)
-        assert isinstance(out, torch.Tensor)
-        assert out.shape == (self.batch_size, self.context_len, self.n_embd)
+        out = pos_emb(inputs)
+        assert out.shape == inputs.shape
 
-    def test_both_encodings_are_called(
-        self, pos_enc: PositionalEncoding, mocker: MockerFixture, inputs: torch.Tensor
+    def test_first_rotation_has_no_affect(
+        self, pos_emb: RotaryPositionalEmbedding, inputs: torch.Tensor
     ) -> None:
-        t_embd = pos_enc.token_embedding_table
-        p_embd = pos_enc.position_embedding_table
-        t_embd_spy = mocker.spy(t_embd, "forward")
-        p_embd_spy = mocker.spy(p_embd, "forward")
-        pos_enc(inputs)
-        t_embd_spy.assert_called_once()
-        p_embd_spy.assert_called_once()
+        out = pos_emb(inputs)
+        # (bsz, ctx_len, n_head, head_dim), therefore test the first embedding of each batch
+        for b in range(out.size(0)):
+            assert torch.allclose(out[b, 0], inputs[b, 0])
+
+    def test_embeddings_are_rotated(
+        self, pos_emb: RotaryPositionalEmbedding, inputs: torch.Tensor
+    ) -> None:
+        out = pos_emb(inputs)
+        assert torch.allclose(out, inputs) == False
 
 
 class TestMLP:
@@ -76,15 +79,21 @@ class TestMLP:
 class TestCausalSelfAttention:
     batch_size = 2
     n_head = 4
-    n_embd = n_head * 3
+    n_embd = n_head * 4
+    max_seq_len = 8
 
     @pytest.fixture
     def c_attn(self) -> CausalSelfAttention:
-        return CausalSelfAttention(n_head=self.n_head, n_embd=self.n_embd, dropout=0.1)
+        return CausalSelfAttention(
+            n_head=self.n_head,
+            n_embd=self.n_embd,
+            max_seq_len=self.max_seq_len,
+            dropout=0.1,
+        )
 
     def test_raises_if_head_and_embd_sizes_incompatiable(self) -> None:
         with pytest.raises(ValueError):
-            CausalSelfAttention(n_head=3, n_embd=10)
+            CausalSelfAttention(n_head=3, n_embd=10, max_seq_len=2)
 
     @pytest.fixture
     def mock_inputs(self) -> torch.Tensor:
@@ -93,12 +102,6 @@ class TestCausalSelfAttention:
             8,  # context_len
             self.n_embd,
         )
-
-    def test_create_heads(self, c_attn: CausalSelfAttention) -> None:
-        B, T, C = 32, 8, self.n_embd
-        mock_query_tensor = torch.randn((B, T, C))
-        with_heads = c_attn.create_heads(mock_query_tensor, B, T, C, self.n_head)
-        assert with_heads.shape == (B, self.n_head, T, C // self.n_head)
 
     def test_output_shape(
         self, c_attn: CausalSelfAttention, mock_inputs: torch.Tensor
@@ -114,7 +117,12 @@ class TestCausalSelfAttention:
         from talm.model.modules import nn as nn_spy  # type: ignore
 
         dropout_spy = mocker.spy(nn_spy, "Dropout")
-        CausalSelfAttention(n_embd=self.n_embd, n_head=self.n_head, dropout=dropout_p)
+        CausalSelfAttention(
+            n_embd=self.n_embd,
+            n_head=self.n_head,
+            dropout=dropout_p,
+            max_seq_len=self.max_seq_len,
+        )
         dropout_spy.assert_called_once_with(dropout_p)
 
     def test_dropout_off_in_eval_mode(
@@ -132,13 +140,15 @@ class TestCausalSelfAttention:
 
 
 class TestDecoderBlock:
+    n_embd = 32
     n_head = 4
-    n_embd = 12
     context_len = 8
 
     @pytest.fixture()
     def block(self) -> DecoderBlock:
-        return DecoderBlock(n_head=self.n_head, n_embd=self.n_embd)
+        return DecoderBlock(
+            n_head=self.n_head, n_embd=self.n_embd, max_seq_len=self.context_len * 2
+        )
 
     def test_output_shape(self, block: DecoderBlock) -> None:
         B, T, C = 4, self.context_len, self.n_embd

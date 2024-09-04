@@ -3,32 +3,61 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 
-class PositionalEncoding(nn.Module):
-    """Positional encoding that creates embedding tables
-    for both positional and informational encoding.
+class RotaryPositionalEmbedding(nn.Module):
+    """Implements Rotary Positional Embeddings
+
+    See here: https://arxiv.org/abs/2104.09864
     """
 
-    def __init__(self, n_embd: int, vocab_size: int, context_len: int):
-        """Initialize a PositionalEncoding.
+    def __init__(self, dim: int, max_seq_len: int, base: float = 10000.0) -> None:
+        """Initialize a `RotaryPositionalEmbedding` module.
 
         Args:
-            n_embd (int): The number of embedding dims for the embedding tables.
-            vocab_size (int): The total number of vocab tokens to create
-                a token embedding table with
-            context_len (int): The length of the context / number of positions to encode
-                through a position embedding table.
+            dim (int): The expected input shape of the embeddings
+            max_seq_len (int): The maximum sequence length to be encoded.
+            base (float): The base used when computing the rotation angles.
         """
+        if dim % 2 != 0:
+            raise ValueError("`dim` argument must be divisible by two")
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
-        self.position_embedding_table = nn.Embedding(context_len, n_embd)
+        self.max_seq_len = max_seq_len
+        self.dim = dim
+        self.base = base
+        self._init_cache()
+        self.cache: Tensor
+
+    def _init_cache(self) -> None:
+        theta = 1.0 / (
+            self.base
+            ** (torch.arange(0, self.dim, 2)[: (self.dim // 2)].float() / self.dim)
+        )
+        m = torch.arange(self.max_seq_len, dtype=torch.float32)
+        freqs = torch.outer(m, theta)
+        freqs_complex = torch.polar(torch.ones_like(freqs), freqs)
+        cache = torch.stack([freqs_complex.real, freqs_complex.imag], dim=-1)
+        self.register_buffer("cache", cache, persistent=False)
 
     def forward(self, x: Tensor) -> Tensor:
-        tx = self.token_embedding_table(x)  # (B, seq_len, n_embd)
-        posx = self.position_embedding_table(
-            torch.arange(x.size(1), device=x.device)
-        )  # (B, n_embd)
-        out: Tensor = tx + posx
-        return out
+        # not using kv-cache, no need for start_pos argument like in other implementations
+        shape = x.shape
+        seqlen = shape[1]
+        rope_cache = self.cache[:seqlen]
+
+        xshaped = x.reshape(*x.shape[:-1], -1, 2)
+        rope_cache = rope_cache.view(-1, xshaped.size(1), 1, xshaped.size(3), 2)
+
+        x_out = torch.stack(
+            [
+                xshaped[..., 0] * rope_cache[..., 0]
+                - xshaped[..., 1] * rope_cache[..., 1],
+                xshaped[..., 1] * rope_cache[..., 0]
+                + xshaped[..., 0] * rope_cache[..., 1],
+            ],
+            -1,
+        )
+
+        x_out = x_out.flatten(3).type_as(x)
+        return x_out
 
 
 class RMSNorm(nn.Module):
@@ -56,14 +85,19 @@ class RMSNorm(nn.Module):
 
 
 class CausalSelfAttention(nn.Module):
-    """A causal self attention layer for creating transformer decoder blocks
+    """Implements causal self attention"""
 
-    Attributes:
-        n_head (int): The number of attention heads to perform multi-headed attention with.
-        n_embd (int): The number of embedding dims for each attention head (head size).
-    """
+    def __init__(
+        self, n_head: int, n_embd: int, max_seq_len: int, dropout: float = 0.0
+    ):
+        """Initialize a `CausalSelfAttention` module.
 
-    def __init__(self, n_head: int, n_embd: int, dropout: float = 0.0):
+        Args:
+            n_head (int): The number of attention heads.
+            n_embd (int): The number of embedding dims. Will be split by `n_head`.
+            max_seq_len (int): Will be passed to `RotaryPositionalEmbedding`.
+            dropout (float): A dropout probability rate.
+        """
         if n_embd % n_head != 0:
             raise ValueError(
                 "The number of embedding dims, specified by `n_embd`, "
@@ -81,34 +115,23 @@ class CausalSelfAttention(nn.Module):
         self.o_dropout = nn.Dropout(dropout)
         self.proj = nn.Linear(n_embd, n_embd, bias=False)
         self.n_embd = n_embd
-
-    def create_heads(self, x: Tensor, B: int, T: int, C: int, n_head: int) -> Tensor:
-        """Views and transposes a tensor of shape `(B, T, C)` to shape `(B, n_head, T, C // n_head)`.
-
-        Args:
-            x (Tensor): The tensor to transform.
-            B (int): The batch of the tensor.
-            T (int): The time dimension of the tensor.
-            C (int): The channel dimension of the tensor.
-            n_head (int): The desired number of attention heads.
-
-        Returns:
-            The transformed tensor.
-        """
-        return x.view(B, T, n_head, C // n_head).transpose(1, 2)
+        self.head_dim = n_embd // n_head
+        self.rope = RotaryPositionalEmbedding(self.head_dim, max_seq_len=max_seq_len)
 
     def forward(self, x: Tensor) -> Tensor:
-        B, T, C = x.size()
-        n_head = self.n_head
+        b, t, c = x.size()
+        n_head, head_dim = self.n_head, self.head_dim
         c_attn_out = self.c_attn(x)
         q: Tensor
         k: Tensor
         v: Tensor
         q, k, v = c_attn_out.split(self.n_embd, dim=2)  # (B, T, C), split on the C dim
 
-        q = self.create_heads(q, B, T, C, n_head)
-        k = self.create_heads(k, B, T, C, n_head)
-        v = self.create_heads(v, B, T, C, n_head)
+        q = q.view(b, t, n_head, head_dim)
+        k = k.view(b, t, n_head, head_dim)
+        v = v.view(b, t, n_head, head_dim).transpose(1, 2)
+
+        q, k = self.rope(q).transpose(1, 2), self.rope(k).transpose(1, 2)
 
         out = F.scaled_dot_product_attention(
             q,
@@ -120,7 +143,7 @@ class CausalSelfAttention(nn.Module):
         )
 
         # (B, n_head, T, head size) -> (B, T, C)
-        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        out = out.transpose(1, 2).contiguous().view(b, t, c)
 
         out = self.o_dropout(self.proj(out))
         return out
@@ -147,19 +170,26 @@ class DecoderBlock(nn.Module):
     """A transformer decoder block."""
 
     def __init__(
-        self, n_head: int, n_embd: int, dropout: float = 0.0, norm_eps: float = 1e-6
+        self,
+        n_head: int,
+        n_embd: int,
+        max_seq_len: int,
+        dropout: float = 0.0,
+        norm_eps: float = 1e-6,
     ) -> None:
         """Initialize a transformer decoder block.
 
         Args:
             n_head (int): The number of attention heads.
             n_embd (int): The number of embedding dims.
-                Attention head size will be n_head / n_embd.
+                Attention head size will be `n_embd // n_head`.
             dropout (float): A dropout probability factor. Defaults to 0.0
             norm_eps (float): Layer normalization epsilon value. Defaults to 1e-6.
         """
         super().__init__()
-        self.multi_head_att = CausalSelfAttention(n_head=n_head, n_embd=n_embd)
+        self.multi_head_att = CausalSelfAttention(
+            n_head=n_head, n_embd=n_embd, max_seq_len=max_seq_len
+        )
         self.att_norm = RMSNorm(n_embd, eps=norm_eps)
         self.mlp = MLP(n_embd=n_embd, dropout=dropout)
         self.mlp_norm = RMSNorm(n_embd, eps=norm_eps)
