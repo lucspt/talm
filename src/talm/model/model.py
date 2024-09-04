@@ -1,7 +1,7 @@
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from .modules import RMSNorm, DecoderBlock
+from .modules import RMSNorm, DecoderLayer
 
 
 class Model(nn.Module):
@@ -11,7 +11,7 @@ class Model(nn.Module):
         self,
         n_embd: int,
         n_head: int,
-        n_block: int,
+        n_layers: int,
         vocab_size: int,
         context_len: int,
         dropout: float = 0.0,
@@ -21,8 +21,8 @@ class Model(nn.Module):
 
         Args:
             n_embd (int): The number of embedding dimensions.
-            n_head (int): The number of heads to create the transformer `DecoderBlock`s with.
-            n_block (int): The number of transformer decoder blocks to create.
+            n_head (int): The number of heads to create the transformer `DecoderLayer`s with.
+            n_layers (int): The number of transformer decoder layers to create.
             vocab_size (int): The vocab_size of the model. The number of possible token ids the model will output.
             context_len (int): The number of tokens a model can tend to during any forward pass.
             dropout (float): The amount of dropout to apply to the model, defaults to `0.0`.
@@ -32,14 +32,14 @@ class Model(nn.Module):
         self.tok_embedding = nn.Embedding(vocab_size, n_embd)
         self.decoder = nn.Sequential(
             *(
-                DecoderBlock(
+                DecoderLayer(
                     n_embd=n_embd,
                     n_head=n_head,
                     dropout=dropout,
                     norm_eps=norm_eps,
                     max_seq_len=context_len * 2,
                 )
-                for _ in range(n_block)
+                for _ in range(n_layers)
             )
         )
         self.norm = RMSNorm(n_embd, eps=norm_eps)

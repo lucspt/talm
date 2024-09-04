@@ -129,7 +129,7 @@ def main() -> None:
         model = Model(
             n_embd=config.n_embd,
             n_head=config.n_head,
-            n_block=config.n_transformer_blocks,
+            n_layers=config.n_transformer_layers,
             vocab_size=tokenizer.n_vocab,
             context_len=config.context_len,
             dropout=config.dropout,
