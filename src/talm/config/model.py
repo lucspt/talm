@@ -8,4 +8,4 @@ class ModelConfig:
     context_len: int = 16
     dropout: float = 0.2
     norm_eps: float = 1e-6
-    n_transformer_blocks: int = 4
+    n_transformer_layers: int = 4

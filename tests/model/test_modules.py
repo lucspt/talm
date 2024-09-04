@@ -4,7 +4,7 @@ from pytest_mock import MockerFixture
 
 from talm.model.modules import (
     MLP,
-    DecoderBlock,
+    DecoderLayer,
     CausalSelfAttention,
     RotaryPositionalEmbedding,
 )
@@ -139,20 +139,20 @@ class TestCausalSelfAttention:
         assert spy.call_args.kwargs.get("dropout_p") == 0.0
 
 
-class TestDecoderBlock:
+class TestDecoderLayer:
     n_embd = 32
     n_head = 4
     context_len = 8
 
     @pytest.fixture()
-    def block(self) -> DecoderBlock:
-        return DecoderBlock(
+    def layer(self) -> DecoderLayer:
+        return DecoderLayer(
             n_head=self.n_head, n_embd=self.n_embd, max_seq_len=self.context_len * 2
         )
 
-    def test_output_shape(self, block: DecoderBlock) -> None:
+    def test_output_shape(self, layer: DecoderLayer) -> None:
         B, T, C = 4, self.context_len, self.n_embd
         inputs = torch.randn((B, T, C))
-        out = block(inputs)
+        out = layer(inputs)
         assert isinstance(out, torch.Tensor)
         assert out.shape == inputs.shape

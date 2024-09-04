@@ -166,7 +166,7 @@ class MLP(nn.Module):
         return out
 
 
-class DecoderBlock(nn.Module):
+class DecoderLayer(nn.Module):
     """A transformer decoder block."""
 
     def __init__(
@@ -187,7 +187,7 @@ class DecoderBlock(nn.Module):
             norm_eps (float): Layer normalization epsilon value. Defaults to 1e-6.
         """
         super().__init__()
-        self.multi_head_att = CausalSelfAttention(
+        self.attn = CausalSelfAttention(
             n_head=n_head, n_embd=n_embd, max_seq_len=max_seq_len
         )
         self.att_norm = RMSNorm(n_embd, eps=norm_eps)
@@ -195,6 +195,6 @@ class DecoderBlock(nn.Module):
         self.mlp_norm = RMSNorm(n_embd, eps=norm_eps)
 
     def forward(self, x: Tensor) -> Tensor:
-        x = x + self.multi_head_att(self.att_norm(x))
+        x = x + self.attn(self.att_norm(x))
         x = x + self.mlp(self.mlp_norm(x))
         return x
