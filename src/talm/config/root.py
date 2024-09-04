@@ -6,8 +6,15 @@ from dataclasses import dataclass
 class RootConfig:
     dirname: Path = Path(__file__).parent.parent  # repo/src/talm
     repo_root: Path = dirname.parent.parent  # /repo
+
     data_dir: Path = repo_root / "data"
+    """Data download directory"""
+
     model_dir: Path = repo_root / "models"
+    """Model checkpoints directory"""
+
     log_dir: Path = repo_root / "logs"
+    """The directory where model logs will be stored"""
+
     tokenizer_dir: Path = repo_root / "tokenizers"
-    tokenizer_path: Path = tokenizer_dir / "tokenizer.bpe"
+    """The directory where tokenizers will be stored"""
