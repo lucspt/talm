@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch.nn.functional as F
 from torch import Tensor, nn
 
@@ -47,22 +45,16 @@ class Model(nn.Module):
         self.norm = RMSNorm(n_embd, eps=norm_eps)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
-    def _compute_loss(self, logits: Tensor, target: Tensor) -> Tensor:
+    def compute_loss(self, logits: Tensor, target: Tensor) -> Tensor:
         """Computes the cross entropy loss between `logits` and `targets`"""
         B, T, C = logits.size()
         logits = logits.view(B * T, C)
-        return F.cross_entropy(logits, target.view(B * T))
+        loss: Tensor = F.cross_entropy(logits, target.view(B * T))
+        return loss
 
-    def forward(
-        self, x: Tensor, target: Optional[Tensor] = None
-    ) -> tuple[Tensor, Optional[Tensor]]:
+    def forward(self, x: Tensor) -> Tensor:
         x = self.tok_embedding(x)
         x = self.decoder(x)
         x = self.norm(x)
         logits: Tensor = self.lm_head(x)
-
-        if target is not None:
-            loss = self._compute_loss(logits=logits, target=target)
-            return logits, loss
-        else:
-            return logits, None
+        return logits

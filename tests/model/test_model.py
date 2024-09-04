@@ -50,34 +50,26 @@ class TestModel:
         self, model: Model, mock_inputs_and_labels: tuple[torch.Tensor, torch.Tensor]
     ) -> None:
         inps, lbls = mock_inputs_and_labels
-        logits, _ = model(inps)
-        loss = model._compute_loss(logits, lbls)
+        logits = model(inps)
+        loss = model.compute_loss(logits, lbls)
         assert isinstance(loss, torch.Tensor)
 
     def test_output_shape(
         self, model: Model, mock_inputs_and_labels: tuple[torch.Tensor, torch.Tensor]
     ) -> None:
-        logits, _ = model(mock_inputs_and_labels[0])
+        logits = model(mock_inputs_and_labels[0])
         print(logits.shape)
         assert isinstance(logits, torch.Tensor)
         assert logits.shape == (self.B, self.T, vocab_size)
-
-    def test_call_with_target_returns_loss(
-        self, model: Model, mock_inputs_and_labels: tuple[torch.Tensor, torch.Tensor]
-    ) -> None:
-        logits, loss = model(*mock_inputs_and_labels)
-        assert isinstance(loss, torch.Tensor)
-        assert isinstance(logits, torch.Tensor)
-        assert isinstance(loss.item(), float)
 
     def test_random_weights_returns_expected_loss(
         self, model: Model, mock_inputs_and_labels: tuple[torch.Tensor, torch.Tensor]
     ) -> None:
         inps, lbls = mock_inputs_and_labels
         expected_loss = -torch.log(torch.tensor(1 / vocab_size))
-        _, loss = model(inps, lbls)
         for _ in range(3):
-            _, loss = model(inps, target=lbls)
+            logits = model(inps)
+            loss = model.compute_loss(logits, lbls)
             assert torch.allclose(loss, expected_loss, rtol=1), (
                 f"Expected loss for model with random weights was {expected_loss.item()}, "
                 f"received loss: {loss.item()}."

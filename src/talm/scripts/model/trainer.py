@@ -3,10 +3,10 @@ from logging import Logger
 from pathlib import Path
 
 import torch
-from torch import nn
 from gressbar import ProgressBar
 
 from ...data import ShardedDataLoader
+from ...model import Model
 from ...types import PathLike
 from ..helpers import is_file_empty
 from ...lr_scheduler import CosineDecayLR
@@ -30,7 +30,7 @@ class Trainer:
     def __init__(
         self,
         epochs: int,
-        model: nn.Module,
+        model: Model,
         model_name: str,
         train_dataloader: ShardedDataLoader,
         val_dataloader: ShardedDataLoader,
@@ -107,7 +107,7 @@ class Trainer:
 
     def train_loop(
         self,
-        model: nn.Module,
+        model: Model,
         optimizer: torch.optim.Optimizer,  # type: ignore
         lr_scheduler: CosineDecayLR,
         device: str,
@@ -121,10 +121,11 @@ class Trainer:
         mean_loss = 0.0
         for i, (x, y) in enumerate(self.train_dataloader.itershards()):
             x, y = x.to(device), y.to(device)
-            _, loss = model(x, y)
+            logits = model(x)
+            loss = model.compute_loss(logits, y)
 
             optimizer.zero_grad(set_to_none=True)
-            loss.backward()
+            loss.backward()  # type: ignore
             grad_norm = torch.nn.utils.clip_grad_norm_(
                 model.parameters(), self.gradient_clip_value
             )
@@ -139,12 +140,12 @@ class Trainer:
 
     def val_loop(
         self,
-        model: nn.Module,
+        model: Model,
         device: str,
     ) -> float:
         """Perform a validation over `val_dataloader`.
 
-            Returns:
+        Returns:
         `float`: The mean loss over all validation of `val_dataloader`.
         """
         model.eval()
@@ -152,7 +153,8 @@ class Trainer:
         with torch.inference_mode():
             for i, (x, y) in enumerate(self.val_dataloader.itershards()):
                 x, y = x.to(device), y.to(device)
-                _, loss = model(x, y)
+                logits = model(x)
+                loss = model.compute_loss(logits, y)
                 mean_loss += loss.item()
         mean_loss /= i
         return mean_loss
