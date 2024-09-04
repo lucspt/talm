@@ -3,9 +3,7 @@ from typing import Optional
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from .norm import RMSNorm
-from .block import DecoderBlock
-from .encoding import PositionalEncoding
+from .modules import RMSNorm, DecoderBlock, PositionalEncoding
 
 
 class Model(nn.Module):
