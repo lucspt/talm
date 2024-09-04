@@ -28,7 +28,7 @@ def model(device: str) -> Model:
         context_len=config.context_len,
         vocab_size=vocab_size,
         dropout=config.dropout,
-        ln_eps=config.ln_eps,
+        norm_eps=config.norm_eps,
     ).to(device)
 
 

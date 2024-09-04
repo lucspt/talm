@@ -3,6 +3,7 @@ from typing import Optional
 import torch.nn.functional as F
 from torch import Tensor, nn
 
+from .norm import RMSNorm
 from .block import DecoderBlock
 from .encoding import PositionalEncoding
 
@@ -18,7 +19,7 @@ class Model(nn.Module):
         vocab_size: int,
         context_len: int,
         dropout: float = 0.0,
-        ln_eps: float = 1e-5,
+        norm_eps: float = 1e-6,
     ) -> None:
         """Initialize the model
 
@@ -29,7 +30,7 @@ class Model(nn.Module):
             vocab_size (int): The vocab_size of the model. The number of possible token ids the model will output.
             context_len (int): The number of tokens a model can tend to during any forward pass.
             dropout (float): The amount of dropout to apply to the model, defaults to `0.0`.
-            ln_eps (float): This value will be given as the `eps` argument to all `nn.LayerNorm` layers within the model.
+            norm_eps (float): This value will be given as the `eps` argument to all `RMSNorm` layers within the model.
         """
         super().__init__()
         self.positional_encoding = PositionalEncoding(
@@ -38,12 +39,12 @@ class Model(nn.Module):
         self.decoder = nn.Sequential(
             *(
                 DecoderBlock(
-                    n_embd=n_embd, n_head=n_head, dropout=dropout, ln_eps=ln_eps
+                    n_embd=n_embd, n_head=n_head, dropout=dropout, norm_eps=norm_eps
                 )
                 for _ in range(n_block)
             )
         )
-        self.ln_f = nn.LayerNorm(n_embd, eps=ln_eps)
+        self.norm = RMSNorm(n_embd, eps=norm_eps)
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
     def _compute_loss(self, logits: Tensor, target: Tensor) -> Tensor:
@@ -57,7 +58,7 @@ class Model(nn.Module):
     ) -> tuple[Tensor, Optional[Tensor]]:
         x = self.positional_encoding(x)
         x = self.decoder(x)
-        x = self.ln_f(x)
+        x = self.norm(x)
         logits: Tensor = self.lm_head(x)
 
         if target is not None:

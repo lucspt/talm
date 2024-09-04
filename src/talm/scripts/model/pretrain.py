@@ -133,7 +133,7 @@ def main() -> None:
             vocab_size=tokenizer.n_vocab,
             context_len=config.context_len,
             dropout=config.dropout,
-            ln_eps=config.ln_eps,
+            norm_eps=config.norm_eps,
         )
 
         optimizer = create_optimizer(
