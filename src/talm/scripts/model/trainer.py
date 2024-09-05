@@ -92,7 +92,7 @@ class Trainer:
         ms = " ".join([str(metrics.get(m)) for m in self.metrics_to_log])
         self._log_msg(ms, mode="a")
 
-    def create_checkpoint(self, filename: str, epoch: int) -> None:
+    def create_checkpoint(self, epoch: int) -> None:
         ckpt = {
             "model": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
@@ -101,7 +101,7 @@ class Trainer:
             "seed": self.seed,
         }
         self.checkpoint_dir.mkdir(exist_ok=True)
-        f = self.checkpoint_dir / f"{filename}.pt"
+        f = self.checkpoint_dir / f"{epoch:06d}.pt"
         self.logger.info(f"Saving model checkpoint to {f}")
         torch.save(ckpt, f)
 

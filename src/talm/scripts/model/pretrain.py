@@ -126,15 +126,7 @@ def main() -> None:
             shuffle=False,
         )
 
-        model = Model(
-            n_embd=config.n_embd,
-            n_head=config.n_head,
-            n_layers=config.n_transformer_layers,
-            vocab_size=tokenizer.n_vocab,
-            context_len=config.context_len,
-            dropout=config.dropout,
-            norm_eps=config.norm_eps,
-        )
+        model = Model(config=config, vocab_size=tokenizer.n_vocab)
 
         optimizer = create_optimizer(
             model=model,
@@ -220,5 +212,6 @@ def main() -> None:
 
     except KeyboardInterrupt:
         catch_err(paths)
-    except:
+    except Exception as e:
+        print(e)
         catch_err(paths)

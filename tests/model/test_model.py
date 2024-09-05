@@ -21,15 +21,7 @@ vocab_size = len(encoder)
 
 @pytest.fixture()
 def model(device: str) -> Model:
-    return Model(
-        n_head=config.n_head,
-        n_embd=config.n_embd,
-        n_layers=config.n_transformer_layers,
-        context_len=config.context_len,
-        vocab_size=vocab_size,
-        dropout=config.dropout,
-        norm_eps=config.norm_eps,
-    ).to(device)
+    return Model(vocab_size=vocab_size, config=ModelConfig()).to(device)
 
 
 class TestModel:
