@@ -17,3 +17,5 @@ class DataConfig:
 
     smol_dataset_name: str = "HuggingFaceTB/smollm-corpus"
     default_smol_dataset_sample: str = "cosmopedia-v2"
+
+    sft_dataset_name: str = "HuggingFaceTB/everyday-conversations-llama3.1-2k"
