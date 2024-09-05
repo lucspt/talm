@@ -1,5 +1,5 @@
 import time
-from typing import Literal
+from typing import Literal, Optional
 from logging import Logger
 from pathlib import Path
 from dataclasses import asdict
@@ -44,7 +44,7 @@ class Trainer:
         seed: int,
         gradient_clip_value: float = 1.0,
         logging_strategy: Literal["steps", "epochs"] = "epochs",
-        log_interval: int = 1,
+        logging_interval: int = 1,
     ) -> None:
         """Initialize a model trainer.
 
@@ -59,7 +59,7 @@ class Trainer:
             logger (Logger): A python Logger object to perform logging.
             gradient_clip_value (float): The clip value to clip gradient's with.
             logging_strategy (Literal["steps", "epochs"]): Whether to log at the end of epochs or at the end of steps.
-            log_interval (int): Logging, and therefore evaluation, will be performed at this interval.
+            logging_interval (int): Logging, and therefore evaluation, will be performed at this interval.
                 This respects `logging_strategy`, so a value of `20` means to log metrics every 20 steps.
         """
 
@@ -92,7 +92,7 @@ class Trainer:
         self.logger = logger
         self.gradient_clip_value = gradient_clip_value
         self.model_config_dict = asdict(model.config)
-        self.log_interval = log_interval
+        self.log_interval = logging_interval
         self.log_strategy = logging_strategy
 
     def _log_msg(self, msg: str, mode: str) -> None:
@@ -101,6 +101,7 @@ class Trainer:
 
     def maybe_init_logging_file(self) -> None:
         if not self.log_file.exists() or is_file_empty(self.log_file):
+            self.log_file.touch(exist_ok=True)
             self._log_msg(" ".join(self.metrics_to_log), mode="w")
 
     def log_metrics(self, **metrics: float | str | int) -> None:
@@ -151,15 +152,13 @@ class Trainer:
             mean_loss += lossi
             self.current_step += 1
             self.on_train_step_end(step=i + 1, train_loss=lossi)
-        mean_loss /= i
+        mean_loss /= i + 1
         return (mean_loss, lr, grad_norm)
 
     def val_loop(
-        self,
-        model: Model,
-        device: str,
+        self, model: Model, device: str, n_steps: Optional[int] = None
     ) -> float:
-        """Perform a validation over `val_dataloader`.
+        """Perform a validation over `val_dataloader`. Specify
 
         Returns:
         `float`: The mean loss over all validation of `val_dataloader`.
@@ -172,7 +171,9 @@ class Trainer:
                 logits = model(x)
                 loss = model.compute_loss(logits, y)
                 mean_loss += loss.item()
-        mean_loss /= i
+                if i + 1 == n_steps:
+                    break
+        mean_loss /= i + 1
         return mean_loss
 
     def on_epoch_start(self, epoch: int) -> None:
@@ -181,10 +182,8 @@ class Trainer:
         )
 
     def on_train_step_end(self, step: int, train_loss: float) -> None:
-        info = {"train loss": f"{train_loss:.4f}"}
         if self.log_strategy == "steps" and step % self.log_interval == 0:
-            val_loss = self.val_loop(model=self.model, device=self.device)
-            info["val loss"] = f"{val_loss:.4f}"
+            val_loss = self.val_loop(model=self.model, device=self.device, n_steps=1)
             self.log_metrics(
                 step=step,
                 train_loss=train_loss,
@@ -192,7 +191,7 @@ class Trainer:
             )
         self.progress_bar.update(
             step,
-            info=info,
+            info={"train loss": f"{train_loss:.4f}"},
             finished=False,
         )
 

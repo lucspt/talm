@@ -17,10 +17,11 @@ from ...lr_scheduler import CosineDecayLR
 def catch_err(paths: list[Path]) -> None:
     try:
         for p in paths:
-            if p.is_file() and is_file_empty(p):
-                p.unlink()
-            elif p.is_dir() and is_folder_empty(p):
-                p.rmdir()
+            if p.exists():
+                if p.is_file() and is_file_empty(p):
+                    p.unlink()
+                elif p.is_dir() and is_folder_empty(p):
+                    p.rmdir()
     except:
         ...
 
@@ -141,23 +142,16 @@ def main() -> None:
 
         if checkpoint_dir.exists() and not is_folder_empty(checkpoint_dir):
             logger.error(
-                f"Model checkpoints for {model_name} have already been created at "
+                f"Model checkpoint directory for `{model_name}` has already been created at "
                 f"{checkpoint_dir}. Aborting training to avoid overwriting. "
                 "Please specify a different model name"
             )
             sys.exit(1)
 
+        checkpoint_dir.mkdir(exist_ok=True)
         paths.append(checkpoint_dir)
 
-        config.log_dir.mkdir(exist_ok=True)
-        log_file = config.log_dir / f"{model_name}.txt"
-        if log_file.exists() and not is_file_empty(log_file):
-            logger.error(
-                f"A log file for model {model_name} has already been created. "
-                "Aborting training to avoid overwriting any data. "
-                "Please specify a diferent name"
-            )
-            sys.exit(1)
+        log_file = checkpoint_dir / f"logs.txt"
 
         paths.append(log_file)
 
@@ -186,6 +180,8 @@ def main() -> None:
             lr_scheduler=lr_scheduler,
             logger=logger,
             seed=seed,
+            logging_strategy=config.logging_strategy,
+            logging_interval=config.logging_interval,
         )
 
         n_params = sum(p.numel() for p in model.parameters())
@@ -201,7 +197,7 @@ def main() -> None:
                     f"context length: {config.context_len}",
                     f"embedding size: {config.n_embd}",
                     f"batch size: {config.batch_size}",
-                    f"n_epochs: {config.n_epochs}",
+                    f"number of epochs: {config.n_epochs}",
                     f"number of model parameters: {n_params:,}",
                     "\n",
                 ]
