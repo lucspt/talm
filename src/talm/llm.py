@@ -160,7 +160,7 @@ class LLM:
             temperature (float, optional): The sampling temperature to use.
 
         Returns:
-            `str`: The generated text.
+            `Message`: The generated response.
         """
         prompt_tokens = self.encode_chat(messages)
         tokens = self.generate(
