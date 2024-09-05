@@ -1,6 +1,8 @@
 import time
+from typing import Literal
 from logging import Logger
 from pathlib import Path
+from dataclasses import asdict
 
 import torch
 from gressbar import ProgressBar
@@ -41,6 +43,8 @@ class Trainer:
         logger: Logger,
         seed: int,
         gradient_clip_value: float = 1.0,
+        logging_strategy: Literal["steps", "epochs"] = "epochs",
+        log_interval: int = 1,
     ) -> None:
         """Initialize a model trainer.
 
@@ -53,6 +57,10 @@ class Trainer:
             log_file (PathLike): A string or `Path` pointing to a file to log training metrics to.
             checkpoint_dir (PathLike): A string or `Path` pointing to a file to save model checkpoints to.
             logger (Logger): A python Logger object to perform logging.
+            gradient_clip_value (float): The clip value to clip gradient's with.
+            logging_strategy (Literal["steps", "epochs"]): Whether to log at the end of epochs or at the end of steps.
+            log_interval (int): Logging, and therefore evaluation, will be performed at this interval.
+                This respects `logging_strategy`, so a value of `20` means to log metrics every 20 steps.
         """
 
         self.device: str
@@ -75,10 +83,17 @@ class Trainer:
         self.lr_scheduler = lr_scheduler
         self.current_step = 0
         self.best_val_loss = float("inf")
-        self.metrics_to_log = ("epoch", "train_loss", "val_loss", "lr")
+        self.metrics_to_log = (
+            logging_strategy[:-1],
+            "train_loss",
+            "val_loss",
+        )
         self._trainloader_len = len(train_dataloader)
         self.logger = logger
         self.gradient_clip_value = gradient_clip_value
+        self.model_config_dict = asdict(model.config)
+        self.log_interval = log_interval
+        self.log_strategy = logging_strategy
 
     def _log_msg(self, msg: str, mode: str) -> None:
         with open(self.log_file, mode) as f:
@@ -95,6 +110,7 @@ class Trainer:
     def create_checkpoint(self, epoch: int) -> None:
         ckpt = {
             "model": self.model.state_dict(),
+            "config": self.model_config_dict,
             "optimizer": self.optimizer.state_dict(),
             "step": self.current_step,
             "epoch": epoch,
@@ -165,9 +181,18 @@ class Trainer:
         )
 
     def on_train_step_end(self, step: int, train_loss: float) -> None:
+        info = {"train loss": f"{train_loss:.4f}"}
+        if self.log_strategy == "steps" and step % self.log_interval == 0:
+            val_loss = self.val_loop(model=self.model, device=self.device)
+            info["val loss"] = f"{val_loss:.4f}"
+            self.log_metrics(
+                step=step,
+                train_loss=train_loss,
+                val_loss=val_loss,
+            )
         self.progress_bar.update(
             step,
-            info={"train loss": f"{train_loss:.4f}"},
+            info=info,
             finished=False,
         )
 
@@ -190,10 +215,12 @@ class Trainer:
                 "time": f"{t:.1f}s",
             },
         )
-        self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss, lr=lr)
+
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
             self.create_checkpoint(epoch=epoch)
+        if self.log_strategy == "epochs":
+            self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss)
 
     def on_train_begin(self) -> None:
         self.maybe_init_logging_file()
