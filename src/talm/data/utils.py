@@ -1,10 +1,14 @@
-from typing import Literal, Optional, Generator
+from typing import Any, Literal, Optional, Generator
 from pathlib import Path
 
 import numpy as np
 import torch
+from datasets import Dataset as HFDataset  # type: ignore
+from torch.utils.data import Dataset
 
 from ..types import PathLike
+from ..resources import Message
+from ..tokenizer import ChatTokenizer
 
 Split = Literal["train", "val"]
 ShardGenerator = Generator[tuple[torch.Tensor, torch.Tensor], None, None]
@@ -125,3 +129,54 @@ class ShardedDataLoader:
         b, t = self.batch_size, self.context_len
         for s in self.shards:
             yield from s._itershard(b, t)
+
+
+# not really sure what generic type PyTorch means to put here, hence the Any
+class SFTDataset(Dataset[Any]):
+    """A PyTorch dataset for supervised fine tuning"""
+
+    tokens_column_name = "tokens"
+
+    def __init__(
+        self, hf_dataset: HFDataset, context_len: int, tokenizer: ChatTokenizer
+    ) -> None:
+        """Initialize a `SFTDataset`.
+
+        Args:
+            hf_dataset (Dataset): A huggingface `Dataset` object to extract tokens from.
+            context_len (int): The desired context length.
+            tokenizer (ChatTokenizer): The tokenizer to use for encoding the dataset messages.
+        """
+        self.context_len = context_len
+        self.chat_tokens = self.extract_tokens(hf_dataset, tokenizer=tokenizer)
+
+    def dataset_map_fn(
+        self,
+        ds_example: dict[str, list[Message]],
+        tokenizer: ChatTokenizer,
+    ) -> dict[str, torch.Tensor]:
+        """Process the huggingface dataset"""
+        chat_encoded = tokenizer.encode_chat(
+            ds_example["messages"], add_generation_prompt=False
+        )
+
+        tokens = torch.tensor(chat_encoded, dtype=torch.long)[: self.context_len + 1]
+        return {self.tokens_column_name: tokens}
+
+    def extract_tokens(
+        self, hf_dataset: HFDataset, tokenizer: ChatTokenizer
+    ) -> torch.Tensor:
+        remove_columns = tuple(c for c in hf_dataset.column_names if c != "messages")
+        processed_ds = hf_dataset.map(
+            self.dataset_map_fn,
+            fn_kwargs={"tokenizer": tokenizer},
+            remove_columns=remove_columns,
+        )
+        return torch.tensor(processed_ds[self.tokens_column_name])
+
+    def __len__(self) -> int:
+        return len(self.chat_tokens)
+
+    def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
+        tokens = self.chat_tokens[index]
+        return tokens[:-1], tokens[1:]

@@ -5,9 +5,12 @@ from tempfile import mkdtemp
 import numpy as np
 import torch
 import pytest
+from datasets import Dataset as HFDataset, load_dataset  # type: ignore
 
-from talm.data.utils import TokensShard, ShardedDataLoader
+from talm.tokenizer import ChatTokenizer
+from talm.data.utils import SFTDataset, TokensShard, ShardedDataLoader
 from talm.config.data import DataConfig
+from talm.config.training import SFTConfig
 
 config = DataConfig()
 
@@ -82,3 +85,33 @@ class TestShardedDataLoader:
         assert any(
             (x_shuff != x).all().item() for (x, _), (x_shuff, _) in zipped_shards
         )
+
+
+@pytest.mark.slow
+class TestSFTDataset:
+    context_len = 12
+    ds_name = SFTConfig().dataset_name
+    select_len = context_len * 2
+
+    @pytest.fixture(scope="class")
+    def hf_ds(self) -> HFDataset:
+        return load_dataset(self.ds_name, name="default", split="train_sft").select(
+            range(0, self.select_len)
+        )
+
+    @pytest.fixture(scope="class")
+    def ds(self, tokenizer_path: str, hf_ds: HFDataset) -> SFTDataset:
+        tokenizer = ChatTokenizer.from_file(tokenizer_path)
+        ds = SFTDataset(hf_ds, self.context_len, tokenizer=tokenizer)
+        return ds
+
+    def test_iterable(self, ds: SFTDataset) -> None:
+        for x, y in ds:  # type: ignore
+            assert isinstance(x, torch.Tensor)
+            assert isinstance(y, torch.Tensor)
+            assert x.dtype == torch.long
+            assert y.dtype == torch.long
+            assert torch.eq(x[1:], y[:-1]).all().item()
+
+    def test_len(self, ds: SFTDataset) -> None:
+        assert len(ds) == self.select_len

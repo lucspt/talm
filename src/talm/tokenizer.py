@@ -1,9 +1,17 @@
+from typing import Any
+
 from tokencoder import Tokenizer
 
+from .types import PathLike
 from .resources import Message
 
 
 class ChatTokenizer:
+    @staticmethod
+    def from_file(filepath: PathLike, **tokencode_kwargs: Any) -> "ChatTokenizer":
+        """Load a tokenizer from a `tokencode` file"""
+        return ChatTokenizer(Tokenizer.from_file(filepath))
+
     def __init__(self, tokenizer: Tokenizer) -> None:
         self.tokenizer = tokenizer
 
