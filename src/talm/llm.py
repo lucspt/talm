@@ -5,6 +5,7 @@ from tokencoder import Tokenizer
 
 from .types import PathLike
 from .resources import Message
+from .tokenizer import ChatTokenizer
 from .model.model import Model
 from .config.model import ModelConfig
 
@@ -40,26 +41,10 @@ class LLM:
 
     def __init__(self, model: Model, tokenizer: Tokenizer):
         self.model = model
+        self.chat_tokenizer = ChatTokenizer(tokenizer)
         self.tokenizer = tokenizer
         self.model.eval()
         self.stop_tokens = {self.tokenizer.eot_token}
-
-    def encode_chat_message(self, message: Message) -> list[int]:
-        """Encode a `Message` dict to tokens."""
-        content = "\n".join([message["role"], message["content"].strip()])
-        return [
-            *self.tokenizer.encode_ordinary(content),
-            self.tokenizer.eot_token,
-            *self.tokenizer.encode("\n"),
-        ]
-
-    def encode_chat(self, chat: list[Message]) -> list[int]:
-        """Encode a list of `Message` dicts to tokens."""
-        tokens = []
-        for msg in chat:
-            tokens.extend(self.encode_chat_message(msg))
-        tokens.extend(self.tokenizer.encode_ordinary("assistant\n"))
-        return tokens
 
     def top_p_sample(self, probs: torch.Tensor, p: float) -> torch.Tensor:
         """Perform top p sampling over `probs` distribution.
@@ -162,7 +147,7 @@ class LLM:
         Returns:
             `Message`: The generated response.
         """
-        prompt_tokens = self.encode_chat(messages)
+        prompt_tokens = self.chat_tokenizer.encode_chat(messages)
         tokens = self.generate(
             prompt_tokens=prompt_tokens,
             max_tokens=max_tokens,
