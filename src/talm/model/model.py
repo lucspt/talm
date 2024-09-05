@@ -2,48 +2,41 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from .modules import RMSNorm, DecoderLayer
+from ..config.model import ModelConfig
 
 
 class Model(nn.Module):
-    """A decoder-only transformer base model for performing language modeling tasks"""
+    """A decoder-only transformer model for performing language modeling tasks
 
-    def __init__(
-        self,
-        n_embd: int,
-        n_head: int,
-        n_layers: int,
-        vocab_size: int,
-        context_len: int,
-        dropout: float = 0.0,
-        norm_eps: float = 1e-6,
-    ) -> None:
+
+    Attributes:
+        config (ModelConfig): The configuration of the model
+    """
+
+    def __init__(self, config: ModelConfig, vocab_size: int) -> None:
         """Initialize the model
 
         Args:
-            n_embd (int): The number of embedding dimensions.
-            n_head (int): The number of heads to create the transformer `DecoderLayer`s with.
-            n_layers (int): The number of transformer decoder layers to create.
-            vocab_size (int): The vocab_size of the model. The number of possible token ids the model will output.
-            context_len (int): The number of tokens a model can tend to during any forward pass.
-            dropout (float): The amount of dropout to apply to the model, defaults to `0.0`.
-            norm_eps (float): This value will be given as the `eps` argument to all `RMSNorm` layers within the model.
+            config (ModelConfig): The model configuration dataclass.
+            vocab_size (int): The model's desired vocab size
         """
         super().__init__()
-        self.tok_embedding = nn.Embedding(vocab_size, n_embd)
+        self.config = config
+        self.tok_embedding = nn.Embedding(vocab_size, config.n_embd)
         self.decoder = nn.Sequential(
             *(
                 DecoderLayer(
-                    n_embd=n_embd,
-                    n_head=n_head,
-                    dropout=dropout,
-                    norm_eps=norm_eps,
-                    max_seq_len=context_len * 2,
+                    n_embd=config.n_embd,
+                    n_head=config.n_head,
+                    dropout=config.dropout,
+                    norm_eps=config.norm_eps,
+                    max_seq_len=config.context_len * 2,
                 )
-                for _ in range(n_layers)
+                for _ in range(config.n_transformer_layers)
             )
         )
-        self.norm = RMSNorm(n_embd, eps=norm_eps)
-        self.lm_head = nn.Linear(n_embd, vocab_size)
+        self.norm = RMSNorm(config.n_embd, eps=config.norm_eps)
+        self.lm_head = nn.Linear(config.n_embd, vocab_size)
 
     def compute_loss(self, logits: Tensor, target: Tensor) -> Tensor:
         """Computes the cross entropy loss between `logits` and `targets`"""
