@@ -10,6 +10,7 @@ from tokencoder.trainer import TokenizerTrainer
 
 from talm.llm import LLM
 from talm.model import Model
+from talm.resources import Message
 from talm.config.model import ModelConfig
 from talm.config.tokenizer import TokenizerConfig
 
@@ -18,6 +19,8 @@ from talm.config.tokenizer import TokenizerConfig
 def tmp_dir() -> Generator[Path, None, None]:
     d = Path(mkdtemp())
     yield d
+    for f in d.iterdir():
+        f.unlink()
     d.rmdir()
 
 
@@ -36,7 +39,7 @@ class TestLLM:
     @pytest.fixture(scope="class")
     def model_config(self) -> ModelConfig:
         return ModelConfig(
-            n_embd=16, n_head=4, context_len=32, dropout=0.0, n_transformer_layers=2
+            n_embd=16, n_head=4, context_len=128, dropout=0.0, n_transformer_layers=2
         )  # very lite model for testing
 
     @pytest.fixture(autouse=True, scope="class")
@@ -56,8 +59,18 @@ class TestLLM:
     ) -> LLM:
         return LLM.build(model_checkpoint, tokenizer_path, **asdict(model_config))
 
-    def test_generate_output(self, llm: LLM) -> None:
-        out = llm.generate(prompt_tokens=list(range(10)))
+    @pytest.mark.parametrize("temperature,device", [(1.0, "cpu"), (None, None)])
+    def test_generate_output(
+        self,
+        llm: LLM,
+        temperature: float | None,
+        device: str | None,
+    ) -> None:
+        out = llm.generate(
+            prompt_tokens=list(range(10)),
+            temperature=temperature,
+            device=device,
+        )
         assert isinstance(out, list)
         for x in out:
             assert isinstance(x, int)
@@ -66,3 +79,40 @@ class TestLLM:
     def test_generate_max_tokens(self, llm: LLM, max_tokens: int) -> None:
         out = llm.generate(prompt_tokens=list(range(10)), max_tokens=max_tokens)
         assert len(out) == max_tokens
+
+    @pytest.fixture
+    def messages(self) -> list[Message]:
+        return [
+            Message(role="user", content="hey assistant!"),
+            Message(role="assistant", content="hey user!"),
+        ]
+
+    def test_encode_chat_message(self, llm: LLM, messages: list[Message]) -> None:
+        tokens = llm.encode_chat_message(messages[0])
+        assert isinstance(tokens, list)
+        for x in tokens:
+            assert isinstance(x, int)
+        assert llm.tokenizer.eot_token in tokens
+        assert "\n" in llm.tokenizer.decode(tokens)
+
+    def test_encode_chat(self, llm: LLM, messages: list[Message]) -> None:
+        tokens = llm.encode_chat(messages)
+        assert isinstance(tokens, list)
+        assert all(isinstance(x, int) for x in tokens)
+
+    def test_chat_completion(self, llm: LLM, messages: list[Message]) -> None:
+        completion = llm.chat_completion(messages)
+        assert "role" in completion
+        assert completion["role"] == "assistant"
+        assert "content" in completion
+        assert isinstance(completion["content"], str)
+
+    def test_chat_completion_raises_when_ctx_len_too_long(
+        self, llm: LLM, messages: list[Message]
+    ) -> None:
+        long_chat = [
+            *messages,
+            Message(role="user", content="text that will be long" * 1000),
+        ]
+        with pytest.raises(Exception):
+            llm.chat_completion(long_chat)

@@ -4,6 +4,7 @@ import torch
 from tokencoder import Tokenizer
 
 from .types import PathLike
+from .resources import Message
 from .model.model import Model
 from .config.model import ModelConfig
 
@@ -41,6 +42,24 @@ class LLM:
         self.model = model
         self.tokenizer = tokenizer
         self.model.eval()
+        self.stop_tokens = {self.tokenizer.eot_token}
+
+    def encode_chat_message(self, message: Message) -> list[int]:
+        """Encode a `Message` dict to tokens."""
+        content = "\n".join([message["role"], message["content"].strip()])
+        return [
+            *self.tokenizer.encode_ordinary(content),
+            self.tokenizer.eot_token,
+            *self.tokenizer.encode("\n"),
+        ]
+
+    def encode_chat(self, chat: list[Message]) -> list[int]:
+        """Encode a list of `Message` dicts to tokens."""
+        tokens = []
+        for msg in chat:
+            tokens.extend(self.encode_chat_message(msg))
+        tokens.extend(self.tokenizer.encode_ordinary("assistant\n"))
+        return tokens
 
     def top_p_sample(self, probs: torch.Tensor, p: float) -> torch.Tensor:
         """Perform top p sampling over `probs` distribution.
@@ -67,8 +86,8 @@ class LLM:
         prompt_tokens: list[int],
         max_tokens: Optional[int] = None,
         device: Optional[str] = None,
-        top_p: float = 0.5,
-        temperature: Optional[float] = 1.0,
+        top_p: float = 1.0,
+        temperature: Optional[float] = None,
     ) -> list[int]:
         """Generate a list of tokens given a list of input tokens.
 
@@ -84,8 +103,13 @@ class LLM:
             `list[int]`: The generated tokens.
         """
         prompt_len = len(prompt_tokens)
+        config = self.model.config
+        if prompt_len > config.context_len:
+            raise Exception(
+                f"Context length too long, expected {config.context_len}, got {prompt_len}."
+            )
         if max_tokens is None:
-            gen_len = self.model.config.context_len
+            gen_len = config.context_len
         else:
             gen_len = prompt_len + max_tokens
 
@@ -98,7 +122,6 @@ class LLM:
             device=device,
         )
         tokens[:, :prompt_len] = torch.tensor(prompt_tokens, dtype=torch.long)
-        stop_tokens = {self.tokenizer.eot_token}
 
         for cur_pos in range(prompt_len, gen_len):
             logits = self.model.forward(tokens[:cur_pos])
@@ -111,9 +134,40 @@ class LLM:
             next_token = self.top_p_sample(probs, p=top_p)
             next_token = next_token.reshape(-1)
 
-            if next_token.item() in stop_tokens:
+            if next_token.item() in self.stop_tokens:
                 break
 
             tokens[:, cur_pos] = next_token
 
         return tokens.squeeze()[prompt_len:].tolist()
+
+    def chat_completion(
+        self,
+        messages: list[Message],
+        max_tokens: Optional[int] = None,
+        device: str | None = None,
+        top_p: float = 1.0,
+        temperature: Optional[float] = None,
+    ) -> Message:
+        """Perform a chat completion given a list of `Message` objects.
+
+        Args:
+            messages (list[Message]): The dialog to generate from.
+            max_tokens (int, optional): A maximum number of tokens to generate,
+                if this number is greater than the model's context length, it is ignored.
+            device (str, optional): The device to move the model to.
+            top_p (float): The p value to use when performing top p / nucleus sampling.
+            temperature (float, optional): The sampling temperature to use.
+
+        Returns:
+            `str`: The generated text.
+        """
+        prompt_tokens = self.encode_chat(messages)
+        tokens = self.generate(
+            prompt_tokens=prompt_tokens,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            device=device,
+        )
+        return {"role": "assistant", "content": self.tokenizer.decode(tokens)}
