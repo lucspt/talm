@@ -26,7 +26,7 @@ class TestLLM:
         t = Tokenizer.from_file(tokenizer_path)
         model = Model(config=model_config, vocab_size=t.n_vocab)
         f = tmp_dir / "model.pt"
-        torch.save({"model": model.state_dict()}, f)
+        torch.save({"model": model.state_dict(), "config": asdict(model_config)}, f)
         yield f
         f.unlink()
 

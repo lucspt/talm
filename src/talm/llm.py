@@ -26,17 +26,15 @@ class LLM:
         Returns:
             `LLM`: The llm
         """
-        args = ModelConfig(**model_args)
+        checkpoint = torch.load(model_path, weights_only=True)
+        args = ModelConfig(**checkpoint["config"])
         tokenizer = Tokenizer.from_file(tokenizer_path)
         model = Model(args, vocab_size=tokenizer.n_vocab)
-        state_dict = torch.load(model_path, weights_only=True)
-        if "model" in state_dict:
-            state_dict = state_dict["model"]
-        else:
+        if "model" not in checkpoint:
             raise Exception(
                 f"Could not find `model` in the state dict loaded from `{model_path}`."
             )
-        model.load_state_dict(state_dict)
+        model.load_state_dict(checkpoint["model"])
         return LLM(model, tokenizer)
 
     def __init__(self, model: Model, tokenizer: Tokenizer):
@@ -147,7 +145,9 @@ class LLM:
         Returns:
             `Message`: The generated response.
         """
-        prompt_tokens = self.chat_tokenizer.encode_chat(messages)
+        prompt_tokens = self.chat_tokenizer.encode_chat(
+            messages, add_generation_prompt=True
+        )
         tokens = self.generate(
             prompt_tokens=prompt_tokens,
             max_tokens=max_tokens,
