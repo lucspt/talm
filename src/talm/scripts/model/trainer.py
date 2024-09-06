@@ -190,9 +190,10 @@ class Trainer:
                 "time": f"{t:.1f}s",
             },
         )
-        self.log_metrics(
-            epoch=epoch + 1, train_loss=train_loss, val_loss=val_loss, lr=lr
-        )
+        self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss, lr=lr)
+        if val_loss < self.best_val_loss:
+            self.best_val_loss = val_loss
+            self.create_checkpoint(epoch=epoch)
 
     def on_train_begin(self) -> None:
         self.maybe_init_logging_file()
