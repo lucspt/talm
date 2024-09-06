@@ -5,6 +5,8 @@ from .root import RootConfig
 from .model import ModelConfig
 from .training import TrainingConfig
 
+__all__ = ["ModelConfig", "DataConfig", "RootConfig", "TrainingConfig", "Config"]
+
 
 # we intentionally don't add tokenizer config, it's not needed here.
 @dataclass
