@@ -161,22 +161,24 @@ class SFTDataset(Dataset[Any]):
         )
 
         tokens = torch.tensor(chat_encoded, dtype=torch.long)[: self.context_len + 1]
+        print(tokens)
         return {self.tokens_column_name: tokens}
 
     def extract_tokens(
         self, hf_dataset: HFDataset, tokenizer: ChatTokenizer
-    ) -> torch.Tensor:
+    ) -> list[list[int]]:
         remove_columns = tuple(c for c in hf_dataset.column_names if c != "messages")
         processed_ds = hf_dataset.map(
             self.dataset_map_fn,
             fn_kwargs={"tokenizer": tokenizer},
             remove_columns=remove_columns,
         )
-        return torch.tensor(processed_ds[self.tokens_column_name])
+        tokens: list[list[int]] = processed_ds[self.tokens_column_name]
+        return tokens
 
     def __len__(self) -> int:
         return len(self.chat_tokens)
 
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
-        tokens = self.chat_tokens[index]
+        tokens = torch.tensor(self.chat_tokens[index])
         return tokens[:-1], tokens[1:]
