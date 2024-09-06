@@ -215,10 +215,8 @@ class BaseTrainer(Generic[DLType]):
         )
 
     def on_train_step_end(self, step: int, train_loss: float) -> None:
-        info = {"train loss": f"{train_loss:.4f}"}
         if self.log_strategy == "steps" and step % self.log_interval == 0:
             val_loss = self.val_loop(model=self.model, device=self.device)
-            info["val loss"] = f"{val_loss:.4f}"
             self.log_metrics(
                 step=step,
                 train_loss=train_loss,
@@ -226,7 +224,7 @@ class BaseTrainer(Generic[DLType]):
             )
         self.progress_bar.update(
             step,
-            info=info,
+            info={"train loss": f"{train_loss:.4f}"},
             finished=False,
         )
 
