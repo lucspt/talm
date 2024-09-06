@@ -253,6 +253,8 @@ class BaseTrainer(Generic[DLType]):
             self.create_checkpoint(epoch=epoch)
         if self.log_strategy == "epochs":
             self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss)
+        elif epoch == self.epochs:
+            self.log_metrics(step=self.current_step, train_loss=train_loss, val_loss=val_loss)
 
     def _set_default_dtype(self) -> None:
         if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
