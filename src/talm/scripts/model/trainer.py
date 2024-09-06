@@ -1,20 +1,26 @@
 import time
-from typing import Literal, Optional
+import inspect
+from typing import Any, Generic, Literal, TypeVar, Optional
 from logging import Logger
 from pathlib import Path
-from dataclasses import asdict
+from collections.abc import Iterable
 
 import torch
 from gressbar import ProgressBar
+from torch.utils.data import DataLoader
 
-from ...data import ShardedDataLoader
 from ...model import Model
 from ...types import PathLike
 from ..helpers import is_file_empty
+from ...data.utils import ShardGenerator, ShardedDataLoader
+from ...config.model import ModelConfig
 from ...lr_scheduler import CosineDecayLR
 
+DataLoaderType = ShardedDataLoader | DataLoader[Any]
+DLType = TypeVar("DLType", bound=DataLoaderType)
 
-class Trainer:
+
+class BaseTrainer(Generic[DLType]):
     """Wrapper class for training a `Model`.
 
     Attribtues:
@@ -34,8 +40,8 @@ class Trainer:
         epochs: int,
         model: Model,
         model_name: str,
-        train_dataloader: ShardedDataLoader,
-        val_dataloader: ShardedDataLoader,
+        train_dataloader: DLType,
+        val_dataloader: DLType,
         optimizer: torch.optim.Optimizer,  # type: ignore
         log_file: PathLike,
         checkpoint_dir: PathLike,
@@ -91,7 +97,10 @@ class Trainer:
         self._trainloader_len = len(train_dataloader)
         self.logger = logger
         self.gradient_clip_value = gradient_clip_value
-        self.model_config_dict = asdict(model.config)
+        self.model_config_dict = {
+            p: getattr(model.config, p)
+            for p in inspect.signature(ModelConfig).parameters
+        }
         self.log_interval = logging_interval
         self.log_strategy = logging_strategy
 
@@ -118,9 +127,14 @@ class Trainer:
             "seed": self.seed,
         }
         self.checkpoint_dir.mkdir(exist_ok=True)
-        f = self.checkpoint_dir / f"{epoch:06d}.pt"
+        f = self.checkpoint_dir / f"epoch_{epoch}.pt"
         self.logger.info(f"Saving model checkpoint to {f}")
         torch.save(ckpt, f)
+
+    def iter_dataloader(
+        self, dataloader: DLType
+    ) -> Iterable[tuple[torch.Tensor, torch.Tensor]]:
+        raise NotImplementedError()
 
     def train_loop(
         self,
@@ -136,7 +150,7 @@ class Trainer:
         """
         model.train()
         mean_loss = 0.0
-        for i, (x, y) in enumerate(self.train_dataloader.itershards()):
+        for i, (x, y) in enumerate(self.iter_dataloader(self.train_dataloader)):
             x, y = x.to(device), y.to(device)
             logits = model(x)
             loss = model.compute_loss(logits, y)
@@ -166,7 +180,7 @@ class Trainer:
         model.eval()
         mean_loss = 0.0
         with torch.inference_mode():
-            for i, (x, y) in enumerate(self.val_dataloader.itershards()):
+            for i, (x, y) in enumerate(self.iter_dataloader(self.val_dataloader)):
                 x, y = x.to(device), y.to(device)
                 logits = model(x)
                 loss = model.compute_loss(logits, y)
@@ -247,3 +261,17 @@ class Trainer:
                 t=t,
                 grad_norm=grad_norm,
             )
+
+
+class Trainer(BaseTrainer[ShardedDataLoader]):
+    """Wrapper class for model pretraining. See `BaseTrainer` for more"""
+
+    def iter_dataloader(self, dataloader: ShardedDataLoader) -> ShardGenerator:
+        yield from dataloader.itershards()
+
+
+class SFTrainer(BaseTrainer[DataLoader[Any]]):
+    """Wrapper class for supervised fine tuning. See `BaseTrainer` for more"""
+
+    def iter_dataloader(self, dataloader: DataLoader[Any]) -> DataLoader[Any]:
+        return dataloader  # dataloader is already an iterator

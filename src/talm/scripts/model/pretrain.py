@@ -1,62 +1,33 @@
 import sys
 from pathlib import Path
 from argparse import ArgumentParser
+from dataclasses import asdict
 
-import torch
 from tokencoder import Tokenizer
 
 from ...data import ShardedDataLoader
+from .common import (
+    count_params,
+    create_optimizer,
+    catch_interruption,
+    print_training_run,
+    get_seeded_generator,
+    assert_model_checkpoint_does_not_exist,
+)
 from ...model import Model
 from .trainer import Trainer
 from ...config import Config
 from ...logger import create_logger
-from ..helpers import is_file_empty, is_folder_empty
+from ...config.model import ModelConfig
 from ...lr_scheduler import CosineDecayLR
-
-
-def catch_err(paths: list[Path]) -> None:
-    try:
-        for p in paths:
-            if p.exists():
-                if p.is_file() and is_file_empty(p):
-                    p.unlink()
-                elif p.is_dir() and is_folder_empty(p):
-                    p.rmdir()
-    except:
-        ...
-
-
-def create_optimizer(
-    model: Model,
-    weight_decay: float,
-    lr: float,
-    betas: tuple[float, float],
-    eps: float,
-) -> torch.optim.Optimizer:  # type: ignore
-    """Create an AdamW optimizer with dynamically decayed weights."""
-    decay_params = [p for p in model.parameters() if p.requires_grad and p.dim() >= 2]
-    no_decay_params = [p for p in model.parameters() if p.requires_grad and p.dim() < 2]
-
-    param_groups = [
-        {
-            "params": decay_params,
-            "weight_decay": weight_decay,
-        },
-        {
-            "params": no_decay_params,
-            "weight_decay": 0.0,
-        },
-    ]
-    # mypy doesn't detect AdamW as an export of torch.optim for some reason
-    optim = torch.optim.AdamW(param_groups, lr=lr, betas=betas, eps=eps)  # type: ignore
-    return optim
 
 
 def main() -> None:
     try:
         logger = create_logger(__name__)
         paths: list[Path] = []
-        config = Config()
+        model_config = ModelConfig()  # store a plain model config for saving
+        config = Config(**asdict(model_config))
         parser = ArgumentParser(
             "train_model",
             description="Pre train a language model.",
@@ -100,15 +71,7 @@ def main() -> None:
 
         tokenizer = Tokenizer.from_file(tokenizer_path)
 
-        generator = torch.Generator()
-
-        if seed is not None:
-            generator.manual_seed(seed)
-        else:
-            seed = generator.seed()
-            logger.info(
-                f"Seed argument was not specified, using randomly generated seed: {seed}"
-            )
+        generator, seed = get_seeded_generator(seed, logger)
 
         train_dataloader = ShardedDataLoader(
             split="train",
@@ -127,26 +90,14 @@ def main() -> None:
             shuffle=False,
         )
 
-        model = Model(config=config, vocab_size=tokenizer.n_vocab)
+        model = Model(config=model_config, vocab_size=tokenizer.n_vocab)
 
-        optimizer = create_optimizer(
-            model=model,
-            weight_decay=config.weight_decay,
-            lr=config.min_lr,  # start at min lr.
-            betas=config.adam_betas,
-            eps=config.adam_eps,
-        )
+        optimizer = create_optimizer(model=model, config=config)
 
         config.model_dir.mkdir(exist_ok=True)
         checkpoint_dir = config.model_dir / model_name
 
-        if checkpoint_dir.exists() and not is_folder_empty(checkpoint_dir):
-            logger.error(
-                f"Model checkpoint directory for `{model_name}` has already been created at "
-                f"{checkpoint_dir}. Aborting training to avoid overwriting. "
-                "Please specify a different model name"
-            )
-            sys.exit(1)
+        assert_model_checkpoint_does_not_exist(checkpoint_dir, logger)
 
         checkpoint_dir.mkdir(exist_ok=True)
         paths.append(checkpoint_dir)
@@ -184,30 +135,14 @@ def main() -> None:
             logging_interval=config.logging_interval,
         )
 
-        n_params = sum(p.numel() for p in model.parameters())
+        n_params = count_params(model)
 
-        sys.stdout.write(
-            "\n".join(
-                [
-                    "",
-                    f"Run Name: {model_name}",
-                    "-" * 50,
-                    f"model checkpoint directory: {checkpoint_dir}",
-                    f"log file location: {log_file}",
-                    f"context length: {config.context_len}",
-                    f"embedding size: {config.n_embd}",
-                    f"batch size: {config.batch_size}",
-                    f"number of epochs: {config.n_epochs}",
-                    f"number of model parameters: {n_params:,}",
-                    "\n",
-                ]
-            )
-        )
+        print_training_run(model_name, n_params, checkpoint_dir, log_file, config)
 
         trainer.train()
 
     except KeyboardInterrupt:
-        catch_err(paths)
+        catch_interruption(paths)
     except Exception as e:
         print(e)
-        catch_err(paths)
+        catch_interruption(paths)

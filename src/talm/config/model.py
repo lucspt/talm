@@ -6,10 +6,10 @@ class ModelConfig:
     n_embd: int = 64
     """The number of embedding dimensions"""
 
-    n_head: int = 4
+    n_head: int = 8
     """The number of attention heads"""
 
-    context_len: int = 16
+    context_len: int = 128
     """The maximum sequence length the model will be able to handle"""
 
     dropout: float = 0.2

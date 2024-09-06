@@ -17,6 +17,7 @@ requires-python = ">= 3.12"
 train_tokenizer = "talm.scripts.train_tokenizer:main"
 download_data = "talm.scripts.download_data:main"
 train_model = "talm.scripts.model.pretrain:main"
+sft = "talm.scripts.model.sft:main"
 
 [tool.rye]
 managed = true
