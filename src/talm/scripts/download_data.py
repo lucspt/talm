@@ -8,7 +8,7 @@ from multiprocessing import Pool
 
 import numpy as np
 from tqdm import tqdm  # type: ignore
-from datasets import DatasetDict, load_dataset  # type: ignore
+from datasets import IterableDataset, load_dataset  # type: ignore
 from tokencoder import Tokenizer
 from numpy.typing import NDArray, ArrayLike
 
@@ -61,7 +61,7 @@ def write_file(dir: Path, tokens: ArrayLike, shard: int) -> Path:
     return pth
 
 
-def tokenize(ds_example: DatasetDict, tokenizer: Tokenizer) -> NDArray[np.uint16]:
+def tokenize(ds_example: dict[str, str], tokenizer: Tokenizer) -> NDArray[np.uint16]:
     tokens: NDArray[np.int64] = np.array(
         [
             tokenizer.eot_token,
@@ -91,7 +91,7 @@ def get_ds_sample(ds_name: DatasetName, sample: Optional[str]) -> str:
     return sample
 
 
-def get_dataset(ds_name: DatasetName, sample: Optional[str]) -> DatasetDict:
+def get_dataset(ds_name: DatasetName, sample: Optional[str]) -> IterableDataset:
     if ds_name == "fineweb":
         return load_dataset(
             config.fineweb_dataset_name,

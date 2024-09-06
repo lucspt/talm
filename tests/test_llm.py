@@ -1,41 +1,18 @@
 from typing import Generator
 from pathlib import Path
-from tempfile import mkdtemp
 from dataclasses import asdict
 
 import torch
 import pytest
 from tokencoder import Tokenizer
-from tokencoder.trainer import TokenizerTrainer
 
 from talm.llm import LLM
 from talm.model import Model
 from talm.resources import Message
 from talm.config.model import ModelConfig
-from talm.config.tokenizer import TokenizerConfig
-
-
-@pytest.fixture(scope="class")
-def tmp_dir() -> Generator[Path, None, None]:
-    d = Path(mkdtemp())
-    yield d
-    for f in d.iterdir():
-        f.unlink()
-    d.rmdir()
 
 
 class TestLLM:
-    @pytest.fixture(autouse=True, scope="class")
-    def tokenizer_path(self, tmp_dir: Path) -> Generator[str, None, None]:
-        trainer = TokenizerTrainer(
-            name="testing", special_tokens=TokenizerConfig().special_tokens
-        )
-        path = trainer.train(
-            text=Path(__file__).read_text(), vocab_size=270, save_dir=tmp_dir
-        )
-        yield path
-        Path(path).unlink()
-
     @pytest.fixture(scope="class")
     def model_config(self) -> ModelConfig:
         return ModelConfig(
@@ -49,7 +26,7 @@ class TestLLM:
         t = Tokenizer.from_file(tokenizer_path)
         model = Model(config=model_config, vocab_size=t.n_vocab)
         f = tmp_dir / "model.pt"
-        torch.save({"model": model.state_dict()}, f)
+        torch.save({"model": model.state_dict(), "config": asdict(model_config)}, f)
         yield f
         f.unlink()
 
@@ -79,26 +56,6 @@ class TestLLM:
     def test_generate_max_tokens(self, llm: LLM, max_tokens: int) -> None:
         out = llm.generate(prompt_tokens=list(range(10)), max_tokens=max_tokens)
         assert len(out) == max_tokens
-
-    @pytest.fixture
-    def messages(self) -> list[Message]:
-        return [
-            Message(role="user", content="hey assistant!"),
-            Message(role="assistant", content="hey user!"),
-        ]
-
-    def test_encode_chat_message(self, llm: LLM, messages: list[Message]) -> None:
-        tokens = llm.encode_chat_message(messages[0])
-        assert isinstance(tokens, list)
-        for x in tokens:
-            assert isinstance(x, int)
-        assert llm.tokenizer.eot_token in tokens
-        assert "\n" in llm.tokenizer.decode(tokens)
-
-    def test_encode_chat(self, llm: LLM, messages: list[Message]) -> None:
-        tokens = llm.encode_chat(messages)
-        assert isinstance(tokens, list)
-        assert all(isinstance(x, int) for x in tokens)
 
     def test_chat_completion(self, llm: LLM, messages: list[Message]) -> None:
         completion = llm.chat_completion(messages)

@@ -1,3 +1,4 @@
+from typing import Literal
 from dataclasses import field, dataclass
 
 
@@ -26,3 +27,18 @@ class TrainingConfig:
 
     gradient_clip_value: float = 1.0
     """Clip gradients with this value"""
+
+    logging_strategy: Literal["steps", "epochs"] = "steps"
+    """`Trainer` logging strategy"""
+
+    logging_interval: int = 1000
+    """How often to log metrics"""
+
+
+@dataclass
+class SFTConfig(TrainingConfig):
+    n_epochs: int = 1
+    max_lr: float = 2e-5
+    min_lr: float = 5e-5
+    dataset_name: str = "HuggingFaceTB/everyday-conversations-llama3.1-2k"
+    logging_interval = 250

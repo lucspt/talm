@@ -1,20 +1,27 @@
 import time
-from typing import Generator
+import inspect
+from typing import Any, Generic, Literal, TypeVar
 from logging import Logger
 from pathlib import Path
 from contextlib import contextmanager
+from collections.abc import Iterable, Generator
 
 import torch
 from gressbar import ProgressBar
+from torch.utils.data import DataLoader
 
-from ...data import ShardedDataLoader
 from ...model import Model
 from ...types import PathLike
 from ..helpers import is_file_empty
+from ...data.utils import ShardGenerator, ShardedDataLoader
+from ...config.model import ModelConfig
 from ...lr_scheduler import CosineDecayLR
 
+DataLoaderType = ShardedDataLoader | DataLoader[Any]
+DLType = TypeVar("DLType", bound=DataLoaderType)
 
-class Trainer:
+
+class BaseTrainer(Generic[DLType]):
     """Wrapper class for training a `Model`.
 
     Attribtues:
@@ -34,8 +41,8 @@ class Trainer:
         epochs: int,
         model: Model,
         model_name: str,
-        train_dataloader: ShardedDataLoader,
-        val_dataloader: ShardedDataLoader,
+        train_dataloader: DLType,
+        val_dataloader: DLType,
         optimizer: torch.optim.Optimizer,  # type: ignore
         log_file: PathLike,
         checkpoint_dir: PathLike,
@@ -43,6 +50,8 @@ class Trainer:
         logger: Logger,
         seed: int,
         gradient_clip_value: float = 1.0,
+        logging_strategy: Literal["steps", "epochs"] = "epochs",
+        logging_interval: int = 1,
     ) -> None:
         """Initialize a model trainer.
 
@@ -55,6 +64,11 @@ class Trainer:
             log_file (PathLike): A string or `Path` pointing to a file to log training metrics to.
             checkpoint_dir (PathLike): A string or `Path` pointing to a file to save model checkpoints to.
             logger (Logger): A python Logger object to perform logging.
+            gradient_clip_value (float): The clip value to clip gradient's with.
+            seed (int): The seed to train with.
+            logging_strategy (Literal["steps", "epochs"]): Whether to log at the end of epochs or at the end of steps.
+            logging_interval (int): Logging, and therefore evaluation, will be performed at this interval.
+                This respects `logging_strategy`, so a value of `20` means to log metrics every 20 steps.
         """
 
         if torch.cuda.is_available():
@@ -81,10 +95,20 @@ class Trainer:
         self.lr_scheduler = lr_scheduler
         self.current_step = 0
         self.best_val_loss = float("inf")
-        self.metrics_to_log = ("epoch", "train_loss", "val_loss", "lr")
+        self.metrics_to_log = (
+            logging_strategy[:-1],
+            "train_loss",
+            "val_loss",
+        )
         self._trainloader_len = len(train_dataloader)
         self.logger = logger
         self.gradient_clip_value = gradient_clip_value
+        self.model_config_dict = {
+            p: getattr(model.config, p)
+            for p in inspect.signature(ModelConfig).parameters
+        }
+        self.log_interval = logging_interval
+        self.log_strategy = logging_strategy
 
     def _log_msg(self, msg: str, mode: str) -> None:
         with open(self.log_file, mode) as f:
@@ -101,13 +125,14 @@ class Trainer:
     def create_checkpoint(self, epoch: int) -> None:
         ckpt = {
             "model": self.model.state_dict(),
+            "config": self.model_config_dict,
             "optimizer": self.optimizer.state_dict(),
             "step": self.current_step,
             "epoch": epoch,
             "seed": self.seed,
         }
         self.checkpoint_dir.mkdir(exist_ok=True)
-        f = self.checkpoint_dir / f"{epoch:06d}.pt"
+        f = self.checkpoint_dir / f"epoch_{epoch}.pt"
         self.logger.info(f"Saving model checkpoint to {f}")
         torch.save(ckpt, f)
 
@@ -128,6 +153,11 @@ class Trainer:
             loss = model.compute_loss(logits, y)
         return loss
 
+    def iter_dataloader(
+        self, dataloader: DLType
+    ) -> Iterable[tuple[torch.Tensor, torch.Tensor]]:
+        raise NotImplementedError()
+
     def train_loop(
         self,
         model: Model,
@@ -142,7 +172,7 @@ class Trainer:
         """
         model.train()
         mean_loss = 0.0
-        for i, (x, y) in enumerate(self.train_dataloader.itershards()):
+        for i, (x, y) in enumerate(self.iter_dataloader(self.train_dataloader)):
             x, y = x.to(device), y.to(device)
             loss = self.compute_loss(x, y, model=model)
             optimizer.zero_grad(set_to_none=True)
@@ -172,7 +202,7 @@ class Trainer:
         model.eval()
         mean_loss = 0.0
         with torch.inference_mode():
-            for i, (x, y) in enumerate(self.val_dataloader.itershards()):
+            for i, (x, y) in enumerate(self.iter_dataloader(self.val_dataloader)):
                 x, y = x.to(device), y.to(device)
                 loss = self.compute_loss(x, y, model=model)
                 mean_loss += loss.item()
@@ -185,6 +215,13 @@ class Trainer:
         )
 
     def on_train_step_end(self, step: int, train_loss: float) -> None:
+        if self.log_strategy == "steps" and step % self.log_interval == 0:
+            val_loss = self.val_loop(model=self.model, device=self.device)
+            self.log_metrics(
+                step=step,
+                train_loss=train_loss,
+                val_loss=val_loss,
+            )
         self.progress_bar.update(
             step,
             info={"train loss": f"{train_loss:.4f}"},
@@ -210,10 +247,16 @@ class Trainer:
                 "time": f"{t:.1f}s",
             },
         )
-        self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss, lr=lr)
+
         if val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
             self.create_checkpoint(epoch=epoch)
+        if self.log_strategy == "epochs":
+            self.log_metrics(epoch=epoch, train_loss=train_loss, val_loss=val_loss)
+
+    def _set_default_dtype(self) -> None:
+        if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
+            torch.set_default_dtype(torch.bfloat16)  # type: ignore
 
     def _set_default_dtype(self) -> None:
         if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
@@ -246,3 +289,17 @@ class Trainer:
                 t=t,
                 grad_norm=grad_norm,
             )
+
+
+class Trainer(BaseTrainer[ShardedDataLoader]):
+    """Wrapper class for model pretraining. See `BaseTrainer` for more"""
+
+    def iter_dataloader(self, dataloader: ShardedDataLoader) -> ShardGenerator:
+        yield from dataloader.itershards()
+
+
+class SFTrainer(BaseTrainer[DataLoader[Any]]):
+    """Wrapper class for supervised fine tuning. See `BaseTrainer` for more"""
+
+    def iter_dataloader(self, dataloader: DataLoader[Any]) -> DataLoader[Any]:
+        return dataloader  # dataloader is already an iterator
