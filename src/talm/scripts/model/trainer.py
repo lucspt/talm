@@ -1,6 +1,8 @@
 import time
+from typing import Generator
 from logging import Logger
 from pathlib import Path
+from contextlib import contextmanager
 
 import torch
 from gressbar import ProgressBar
@@ -55,14 +57,18 @@ class Trainer:
             logger (Logger): A python Logger object to perform logging.
         """
 
-        self.device: str
         if torch.cuda.is_available():
-            self.device = "cuda"
+            self.device_type = "cuda"
         elif torch.backends.mps.is_built() and torch.backends.mps.is_available():
-            self.device = "mps"
+            self.device_type = "mps"
         else:
-            self.device = "cpu"
+            self.device_type = "cpu"
 
+        self._is_autocast_available: bool = torch.amp.is_autocast_available(  # type: ignore
+            device_type=self.device_type
+        )
+
+        self.device = self.device_type
         self.seed = seed
         self.model_name = model_name
         self.optimizer = optimizer
@@ -105,6 +111,23 @@ class Trainer:
         self.logger.info(f"Saving model checkpoint to {f}")
         torch.save(ckpt, f)
 
+    @contextmanager
+    def compute_loss_context_manager(self) -> Generator[None, None, None]:
+        if self._is_autocast_available:
+            with torch.autocast(device_type=self.device_type, dtype=torch.bfloat16):
+                yield None
+        else:
+            yield None
+
+    def compute_loss(
+        self, x: torch.Tensor, y: torch.Tensor, model: Model
+    ) -> torch.Tensor:
+        """Do a forward pass and compute the loss"""
+        with self.compute_loss_context_manager():
+            logits = self.model(x)
+            loss = model.compute_loss(logits, y)
+        return loss
+
     def train_loop(
         self,
         model: Model,
@@ -121,9 +144,7 @@ class Trainer:
         mean_loss = 0.0
         for i, (x, y) in enumerate(self.train_dataloader.itershards()):
             x, y = x.to(device), y.to(device)
-            logits = model(x)
-            loss = model.compute_loss(logits, y)
-
+            loss = self.compute_loss(x, y, model=model)
             optimizer.zero_grad(set_to_none=True)
             loss.backward()  # type: ignore
             grad_norm = torch.nn.utils.clip_grad_norm_(
@@ -153,8 +174,7 @@ class Trainer:
         with torch.inference_mode():
             for i, (x, y) in enumerate(self.val_dataloader.itershards()):
                 x, y = x.to(device), y.to(device)
-                logits = model(x)
-                loss = model.compute_loss(logits, y)
+                loss = self.compute_loss(x, y, model=model)
                 mean_loss += loss.item()
         mean_loss /= i
         return mean_loss
@@ -195,15 +215,20 @@ class Trainer:
             self.best_val_loss = val_loss
             self.create_checkpoint(epoch=epoch)
 
+    def _set_default_dtype(self) -> None:
+        if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
+            torch.set_default_dtype(torch.bfloat16)  # type: ignore
+
     def on_train_begin(self) -> None:
         self.maybe_init_logging_file()
         torch.set_float32_matmul_precision("high")
+        self._set_default_dtype()
 
     def train(self) -> None:
         """Train `self.model` over `self.epochs` epochs."""
         self.on_train_begin()
-        for epoch in range(self.epochs):
-            self.on_epoch_start(epoch=epoch + 1)
+        for epoch in range(1, self.epochs + 1):
+            self.on_epoch_start(epoch=epoch)
             t_start = time.time()
             train_loss, lr, grad_norm = self.train_loop(
                 model=self.model,
@@ -214,7 +239,7 @@ class Trainer:
             val_loss = self.val_loop(model=self.model, device=self.device)
             t = time.time() - t_start
             self.on_epoch_end(
-                epoch + 1,
+                epoch,
                 train_loss=train_loss,
                 val_loss=val_loss,
                 lr=lr,
