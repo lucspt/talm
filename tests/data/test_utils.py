@@ -6,9 +6,14 @@ import numpy as np
 import torch
 import pytest
 from datasets import Dataset as HFDataset, load_dataset  # type: ignore
+from pytest_mock import MockerFixture
 
 from talm.tokenizer import ChatTokenizer
-from talm.data.utils import SFTDataset, TokensShard, ShardedDataLoader
+from talm.data.utils import (
+    SFTDataset,
+    TokensShard,
+    ShardedDataLoader,
+)
 from talm.config.data import DataConfig
 from talm.config.training import SFTConfig
 
@@ -115,3 +120,26 @@ class TestSFTDataset:
 
     def test_len(self, ds: SFTDataset) -> None:
         assert len(ds) == self.select_len
+
+    def test_dataloader_collate_fn(self) -> None:
+        max_len = 32
+        rand_max_len = torch.randn((max_len,))
+        rand_to_truncate = torch.randn((max_len * 2))
+        example = [(rand_max_len, rand_max_len), (rand_to_truncate, rand_to_truncate)]
+        collated = SFTDataset.dataloader_collate_fn(example)
+        for x, y in collated:
+            assert x.size(0) == max_len and y.size(0) == max_len
+
+    def test_get_dataloader(self, ds: SFTDataset, mocker: MockerFixture) -> None:
+        import talm.data.utils as dl_spy
+
+        spy = mocker.spy(dl_spy, "DataLoader")
+        ds.get_dataloader(batch_size=16, shuffle=True)
+        spy.assert_called_once_with(
+            ds, batch_size=16, shuffle=True, collate_fn=ds.dataloader_collate_fn
+        )
+
+    def test_dataloader_can_iterate_over_baches(self, ds: SFTDataset) -> None:
+        loader = ds.get_dataloader(2, True)
+        for _ in loader:
+            ...

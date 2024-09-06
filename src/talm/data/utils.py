@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from datasets import Dataset as HFDataset  # type: ignore
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader
 
 from ..types import PathLike
 from ..resources import Message
@@ -182,3 +182,27 @@ class SFTDataset(Dataset[Any]):
     def __getitem__(self, index: int) -> tuple[torch.Tensor, torch.Tensor]:
         tokens = torch.tensor(self.chat_tokens[index])
         return tokens[:-1], tokens[1:]
+
+    @staticmethod
+    def dataloader_collate_fn(
+        data: list[tuple[torch.Tensor, torch.Tensor]],
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """The collate_fn for a PyTorch `DataLoader`."""
+        # TODO: maybe pad inputs instead of truncating
+        inputs, lbls = zip(*data)
+        max_len = min(map(lambda x: x.size(0), inputs))
+
+        xb = torch.stack(tuple(x[:max_len] for x in inputs))
+        yb = torch.stack(tuple(x[:max_len] for x in lbls))
+        return xb, yb
+
+    def get_dataloader(
+        self, batch_size: int, shuffle: bool
+    ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
+        """Get a dataloader for an `SFTDataset`"""
+        return DataLoader(
+            self,
+            batch_size=batch_size,
+            shuffle=shuffle,
+            collate_fn=SFTDataset.dataloader_collate_fn,
+        )
