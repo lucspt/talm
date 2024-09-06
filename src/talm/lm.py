@@ -10,13 +10,13 @@ from .model.model import Model
 from .config.model import ModelConfig
 
 
-class LLM:
+class LM:
     @staticmethod
     def build(
         model_path: PathLike, tokenizer_path: PathLike, **model_args: Any
-    ) -> "LLM":
+    ) -> "LM":
         """Build a model and tokenizer with the given paths and construct an
-        `LLM` with the loaded objects.
+        `LM` with the loaded objects.
 
         Args:
             model_path (PathLike): The model checkpoint path.
@@ -24,7 +24,7 @@ class LLM:
             model_args: Keyword arguments to use when creating the `ModelConfig`
 
         Returns:
-            `LLM`: The llm
+            `LM`: The language model
         """
         checkpoint = torch.load(model_path, weights_only=True)
         args = ModelConfig(**checkpoint["config"])
@@ -35,7 +35,7 @@ class LLM:
                 f"Could not find `model` in the state dict loaded from `{model_path}`."
             )
         model.load_state_dict(checkpoint["model"])
-        return LLM(model, tokenizer)
+        return LM(model, tokenizer)
 
     def __init__(self, model: Model, tokenizer: Tokenizer):
         self.model = model
