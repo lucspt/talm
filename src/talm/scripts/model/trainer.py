@@ -258,10 +258,6 @@ class BaseTrainer(Generic[DLType]):
         if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
             torch.set_default_dtype(torch.bfloat16)  # type: ignore
 
-    def _set_default_dtype(self) -> None:
-        if self.device_type == "cuda" and torch.cuda.is_bf16_supported():
-            torch.set_default_dtype(torch.bfloat16)  # type: ignore
-
     def on_train_begin(self) -> None:
         self.maybe_init_logging_file()
         torch.set_float32_matmul_precision("high")
