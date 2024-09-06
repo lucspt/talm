@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 import torch
 from datasets import load_dataset  # type: ignore
 from tokencoder import Tokenizer
-from torch.utils.data import DataLoader
 
 from .common import (
     count_params,
@@ -115,14 +114,11 @@ def main() -> None:
 
         generator, seed = get_seeded_generator(seed, logger=logger)
 
-        train_dataloader = DataLoader(
-            train_ds,
-            batch_size=sft_config.batch_size,
-            shuffle=True,
-            generator=generator,
+        train_dataloader = train_ds.get_dataloader(
+            batch_size=sft_config.batch_size, shuffle=True, generator=generator
         )
-        val_dataloader = DataLoader(
-            val_ds, batch_size=sft_config.batch_size, shuffle=False, generator=generator
+        val_dataloader = val_ds.get_dataloader(
+            batch_size=sft_config.batch_size, shuffle=False, generator=generator
         )
 
         lr_scheduler = CosineDecayLR(

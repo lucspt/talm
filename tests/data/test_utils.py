@@ -134,9 +134,14 @@ class TestSFTDataset:
         import talm.data.utils as dl_spy
 
         spy = mocker.spy(dl_spy, "DataLoader")
-        ds.get_dataloader(batch_size=16, shuffle=True)
+        gen = torch.Generator()
+        ds.get_dataloader(batch_size=16, shuffle=True, generator=gen)
         spy.assert_called_once_with(
-            ds, batch_size=16, shuffle=True, collate_fn=ds.dataloader_collate_fn
+            ds,
+            batch_size=16,
+            shuffle=True,
+            collate_fn=ds.dataloader_collate_fn,
+            generator=gen,
         )
 
     def test_dataloader_can_iterate_over_baches(self, ds: SFTDataset) -> None:

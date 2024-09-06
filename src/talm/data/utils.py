@@ -197,7 +197,10 @@ class SFTDataset(Dataset[Any]):
         return xb, yb
 
     def get_dataloader(
-        self, batch_size: int, shuffle: bool
+        self,
+        batch_size: int,
+        shuffle: bool,
+        generator: Optional[torch.Generator] = None,
     ) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
         """Get a dataloader for an `SFTDataset`"""
         return DataLoader(
@@ -205,4 +208,5 @@ class SFTDataset(Dataset[Any]):
             batch_size=batch_size,
             shuffle=shuffle,
             collate_fn=SFTDataset.dataloader_collate_fn,
+            generator=generator,
         )
