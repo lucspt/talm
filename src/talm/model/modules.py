@@ -188,7 +188,7 @@ class DecoderLayer(nn.Module):
         """
         super().__init__()
         self.attn = CausalSelfAttention(
-            n_head=n_head, n_embd=n_embd, max_seq_len=max_seq_len
+            n_head=n_head, n_embd=n_embd, max_seq_len=max_seq_len, dropout=dropout
         )
         self.att_norm = RMSNorm(n_embd, eps=norm_eps)
         self.mlp = MLP(n_embd=n_embd, dropout=dropout)
