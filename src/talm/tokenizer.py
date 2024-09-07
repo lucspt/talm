@@ -17,7 +17,8 @@ class ChatTokenizer:
 
     def encode_chat_message(self, message: Message) -> list[int]:
         """Encode a `Message` dict to tokens."""
-        content = "\n".join([message["role"], message["content"].strip()])
+        role = "<|" + message["role"] + "|>"
+        content = "\n".join([role, message["content"].strip()])
         return [
             *self.tokenizer.encode_ordinary(content),
             self.tokenizer.eot_token,
@@ -32,5 +33,5 @@ class ChatTokenizer:
         for msg in chat:
             tokens.extend(self.encode_chat_message(msg))
         if add_generation_prompt:
-            tokens.extend(self.tokenizer.encode_ordinary("assistant\n"))
+            tokens.extend(self.tokenizer.encode_ordinary("<|assistant|>\n"))
         return tokens

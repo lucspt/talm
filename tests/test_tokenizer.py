@@ -32,7 +32,8 @@ class TestChatTokenizer:
         )
         assert isinstance(tokens, list)
         assert all(isinstance(x, int) for x in tokens)
-        generation_prompt = "assistant\n"
+        generation_prompt = "<|assistant|>\n"
+        print(tokenizer.tokenizer.decode(tokens))
         has_generation_promp = (
             tokenizer.tokenizer.decode(tokens)[-len(generation_prompt) :]
             == generation_prompt
