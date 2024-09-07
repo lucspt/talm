@@ -39,7 +39,7 @@ fsspec==2024.2.0
     # via datasets
     # via huggingface-hub
     # via torch
-gressbar @ git+https://github.com/lucspt/gressbar.git@c664a41b96b8ba3afed2d5b1f88b2065479b51c3
+gressbar @ git+https://github.com/lucspt/gressbar.git@339c088aa5c61492ad04fc2ab8d335bc4eb419f1
     # via talm
 huggingface-hub==0.24.6
     # via datasets
@@ -94,7 +94,7 @@ sympy==1.12
     # via torch
 tiktoken==0.7.0
     # via tokencoder
-tokencoder @ git+https://github.com/lucspt/tokencoder.git@a4bb52fb74932ace555cae00690c7e547429e582
+tokencoder @ git+https://github.com/lucspt/tokencoder.git@2e7c2bbb2f51e7a0b3a5041be8737ad6dfa747db
     # via talm
 torch==2.4.0
     # via talm
