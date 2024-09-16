@@ -47,8 +47,7 @@ class TestRotaryPositionalEmbedding:
     ) -> None:
         out = pos_emb(inputs)
         # (bsz, ctx_len, n_head, head_dim), therefore test the first embedding of each batch
-        for b in range(out.size(0)):
-            assert torch.allclose(out[b, 0], inputs[b, 0])
+        assert torch.allclose(out[:, 0], inputs[:, 0])
 
     def test_embeddings_are_rotated(
         self, pos_emb: RotaryPositionalEmbedding, inputs: torch.Tensor
