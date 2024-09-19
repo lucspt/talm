@@ -17,6 +17,9 @@ Steps:
 3. [Download dataset](#3-download-a-dataset)
 4. [Train a model](#4-train-a-model)
 
+> [!NOTE]
+There exists a c++ implementation of the language model in the [cpplm repo](https://github.com/lucspt/cpplm).
+
 ## 1. Setup The Environment
 
 First, you'll need to setup your local environment. This project manages dependencies 
@@ -153,4 +156,3 @@ supervised fine tuning and RLHF may be implemented.
 
 Nice, you just walked through training a language model with `talm`. Hope you enjoyed, 
 the experience!
-
